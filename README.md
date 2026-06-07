@@ -8,7 +8,7 @@ statement/card.
 
 See `HANDOFF.md` for the full design brief.
 
-## Status: Milestones 1–4 + variables/functions complete
+## Status: Milestones 1–5 + variables/functions complete
 
 **Implemented**
 
@@ -80,8 +80,7 @@ Operators, literals, `VarRef`, and `DefineFunc` get no IDs and evaluate silently
 The Milestone-1 movement IDs are unchanged because command arguments are
 non-highlightable expression nodes.
 
-**Deferred (Milestone 5, embedded prep)**: interface hardening for ESP32
-(avoiding heap churn in the hot path, optional embedded build flags). Not started.
+See **Embedded integration** below for the ESP32/ESP-IDF story (Milestone 5).
 
 ## Build & test
 
@@ -122,26 +121,85 @@ ProgramDone
 ## Layout
 
 ```text
-include/cardcode/   public headers (ast, lexer, parser, compiler, engine, events, robot_host, ...)
-src/                lexer.cpp parser.cpp compiler.cpp engine.cpp
-tools/              cardcode_run.cpp (CLI)
+include/cardcode/   public headers (ast, value, lexer, parser, compiler, engine, events, robot_host, mock_robot_host)
+src/                lexer.cpp parser.cpp compiler.cpp engine.cpp   (the embeddable engine core)
+tools/              cardcode_run.cpp (host-only CLI)
 tests/              doctest suite + vendored third_party/doctest.h
-examples/           square.ccode
+examples/           square / obstacle / line / patrol / approach .ccode
+docs/               design specs
 ```
 
 ## Design notes
 
-- **Determinism**: `assign_node_ids` is a pre-order walk over the highlightable
-  AST. Numeric arguments are stored inline on each node (not as child nodes), so
-  only control-flow/command expressions receive IDs and emit events — literals
-  never do. Repeated statements keep the same ID across iterations.
+- **Determinism**: `assign_node_ids` is a pre-order walk that numbers only
+  *highlightable* nodes (control flow, commands, sensors, `Call`, `DefineVar`,
+  `SetVar`). Operators, literals, `VarRef`, and `DefineFunc` are skipped, so
+  command/loop IDs stay compact and stable even though arguments are now
+  expression nodes. Repeated statements (and function-body nodes across calls)
+  keep the same ID each time they run.
 - **Errors vs. exceptions**: ordinary syntax/semantic problems return
-  `Diagnostic`s; exceptions are reserved for genuine engine bugs.
-- **Safety**: command arguments are integer literals, so range checks (speed,
-  duration, degrees, wait, repeat count) happen at compile time with precise
-  spans. The interpreter additionally enforces `max_total_steps` at runtime,
-  treats division by zero / type mismatches as runtime errors, and calls
-  `robot.stop()` on any error or cancellation.
+  `Diagnostic`s, never exceptions. The engine core is in fact **exception-free**
+  (see Embedded integration).
+- **Safety**: literal command arguments are range-checked at compile time with
+  precise spans; computed arguments are range-checked at runtime. The interpreter
+  also enforces `max_total_steps` and `max_call_depth`, treats division by zero /
+  type mismatches as runtime errors, and calls `robot.stop()` on any error or
+  cancellation.
 - **Cancellation**: pass an `std::atomic<bool>*` to `execute`/`compile_and_run`.
   It is polled before each node; when set, the engine stops the robot, emits
   `ProgramError("execution cancelled")`, and returns `success == false`.
+
+## Integration
+
+For embedding the engine into a host application — a desktop **websocket harness**
+for developing the card UI and **ESP32 firmware** for the real robot — see
+[`docs/integration/`](docs/integration/README.md): a shared, transport-agnostic
+integration layer, the [JSON wire protocol](docs/integration/protocol.md) both
+targets speak, and per-target guides for the
+[local harness](docs/integration/local-harness.md) and
+[ESP32](docs/integration/esp32.md).
+
+The local harness is **implemented** in [`harness/`](harness/) (builds as
+`cardcode-harness`). It speaks the JSON protocol over stdin/stdout (or `--port`
+TCP); pair it with `websocketd --port=8080 ./cardcode-harness` to drive the card
+UI from a browser. Quick check:
+
+```bash
+printf '%s\n' '{"type":"run","source":"(repeat 4 (drive 40 1000) (turn-right 90))"}' \
+  | ./build/cardcode-harness
+```
+
+## Embedded integration (Milestone 5)
+
+The engine is built so it can drop into ESP32 / ESP-IDF firmware with the host
+CLI and tests left behind.
+
+- **Clean host boundary.** The engine never touches hardware; it calls the
+  abstract `RobotHost` interface (`include/cardcode/robot_host.hpp`). Firmware
+  provides a concrete `RobotHost` driving real motors/LEDs/sensors; the desktop
+  build uses `MockRobotHost`.
+- **Build just the engine.** Only the `cardcode_engine` library is needed; the
+  CLI and tests are gated behind CMake options:
+
+  ```bash
+  cmake -S . -B build -DCARDCODE_EMBEDDED=ON   # engine only
+  cmake --build build                          # -> libcardcode_engine.a
+  ```
+
+  `CARDCODE_EMBEDDED=ON` compiles the engine with `-fno-exceptions -fno-rtti`
+  (the ESP-IDF defaults) and turns `CARDCODE_BUILD_TOOLS`/`CARDCODE_BUILD_TESTS`
+  off. Those two options can also be toggled independently on the host.
+- **No host-only dependencies.** The core (`include/cardcode/*`, `src/*.cpp`)
+  pulls in only freestanding-friendly standard headers — no `<iostream>`,
+  `<fstream>`, `<filesystem>`, or `<thread>`. `<iostream>`/`<fstream>` live only
+  in the host CLI.
+- **Exception-free.** The lexer parses integers without `std::stoll`, so nothing
+  in the core throws; it compiles cleanly under `-fno-exceptions`. (Container
+  allocation failure still calls `std::terminate`/`abort`, the expected behavior
+  on a device under OOM.)
+- **Hot-path allocation, with eyes open.** Two allocations occur during
+  execution, both bounded by the safety limits: a per-call environment `Frame`
+  (`unordered_map`, bounded by `max_call_depth`) and the per-event message
+  `std::string` (bounded by `max_total_steps`). Acceptable for v1; the obvious
+  future optimizations are a frame pool/arena and a string-free event payload.
+  Compilation allocates freely but happens once, off the motion hot path.

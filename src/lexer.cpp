@@ -1,6 +1,6 @@
 #include "cardcode/lexer.hpp"
 
-#include <stdexcept>
+#include <limits>
 #include <string>
 
 namespace cardcode {
@@ -27,6 +27,23 @@ bool is_integer_word(const std::string& w) {
     for (; i < w.size(); ++i) {
         if (w[i] < '0' || w[i] > '9') return false;
     }
+    return true;
+}
+
+// Non-throwing decimal parse (so the engine can build with -fno-exceptions).
+// `w` must already satisfy is_integer_word(). Returns false on overflow.
+bool parse_int(const std::string& w, std::int64_t& out) {
+    std::size_t i = 0;
+    const bool neg = w[i] == '-';
+    if (neg) ++i;
+    constexpr std::int64_t kMax = std::numeric_limits<std::int64_t>::max();
+    std::int64_t v = 0;
+    for (; i < w.size(); ++i) {
+        const int d = w[i] - '0';
+        if (v > (kMax - d) / 10) return false; // would overflow
+        v = v * 10 + d;
+    }
+    out = neg ? -v : v;
     return true;
 }
 
@@ -84,9 +101,7 @@ LexResult lex(std::string_view src) {
                 t.kind = TokenKind::Integer;
                 t.span = span;
                 t.text = word;
-                try {
-                    t.integer = std::stoll(word);
-                } catch (const std::out_of_range&) {
+                if (!parse_int(word, t.integer)) {
                     result.diagnostics.push_back({DiagnosticSeverity::Error, span,
                         "integer literal out of range: " + word});
                     t.integer = 0;

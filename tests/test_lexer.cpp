@@ -60,3 +60,18 @@ TEST_CASE("reports invalid characters") {
     CHECK_FALSE(r.ok());
     CHECK(r.diagnostics.size() == 1);
 }
+
+TEST_CASE("an out-of-range integer is a diagnostic, not a crash") {
+    // Non-throwing parse (engine is exception-free for embedded builds).
+    auto r = lex("999999999999999999999999999999");
+    CHECK_FALSE(r.ok());
+    REQUIRE_FALSE(r.diagnostics.empty());
+    CHECK(r.diagnostics[0].message.find("out of range") != std::string::npos);
+}
+
+TEST_CASE("parses the full positive int64 range boundary") {
+    auto r = lex("9223372036854775807"); // INT64_MAX
+    REQUIRE(r.ok());
+    CHECK(r.tokens[0].kind == TokenKind::Integer);
+    CHECK(r.tokens[0].integer == 9223372036854775807LL);
+}

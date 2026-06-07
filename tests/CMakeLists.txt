@@ -11,9 +11,13 @@ add_executable(cardcode_tests
   test_variables.cpp
   test_functions.cpp
   test_while.cpp
+  test_harness.cpp
 )
 
-target_link_libraries(cardcode_tests PRIVATE cardcode_engine)
-target_include_directories(cardcode_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+find_package(Threads REQUIRED)
+target_link_libraries(cardcode_tests PRIVATE cardcode_engine Threads::Threads)
+target_include_directories(cardcode_tests PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+  ${CMAKE_CURRENT_SOURCE_DIR}/../harness)
 
 add_test(NAME cardcode_tests COMMAND cardcode_tests)
