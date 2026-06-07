@@ -1,0 +1,20 @@
+# CardCode engine -- ESP-IDF managed component manifest.
+#
+# Location: cardcode/idf_component/idf_component.yml  (a SUBDIR, deliberately
+# NOT the repo root). Placing it here keeps it out of the host CMake build
+# (root CMakeLists.txt) entirely, and is the directory a consuming project's
+# git dependency points at via `path: idf_component`.
+#
+# This manifest describes the component itself (its identity + what it depends
+# on). The engine has ZERO ESP-IDF component dependencies beyond the toolchain
+# (libstdc++) and FreeRTOS, which IDF always provides -- so `dependencies` is
+# empty here.
+version: "0.1.0"
+description: "CardCode engine: lexer/parser/compiler/interpreter for the CardCode visual robot language. Exception/RTTI-free, C++23, zero ESP-IDF dependencies."
+url: "https://github.com/flatlinerc/cardcode"
+targets:
+  - esp32
+  - esp32s3
+dependencies:
+  idf:
+    version: ">=5.0"
