@@ -51,3 +51,46 @@ test('preserves unsafe integer literals without precision loss', () => {
 
   assert.equal(projectValue(ast.children[0]), '9007199254740993');
 });
+
+test('projects do bodies into child cards with stable ids and spans', async () => {
+  const manifest = await defaultManifest();
+  const ast = parseCardCode('(do (drive 40 1000) (stop))');
+  const cards = projectProgram(ast, manifest);
+
+  assert.equal(cards[0].cardId, 'control.do');
+  assert.equal(cards[0].children.length, 2);
+  assert.equal(cards[0].children[0].id, 'card-1-1');
+  assert.equal(cards[0].children[0].cardId, 'robot.drive');
+  assert.deepEqual(cards[0].children[0].span, ast.children[0].children[1].span);
+  assert.deepEqual(cards[0].children[0].params.speed.span, ast.children[0].children[1].children[1].span);
+});
+
+test('falls back to generic cards when command forms have extra args', async () => {
+  const manifest = await defaultManifest();
+  const ast = parseCardCode('(drive 40 1000 extra)');
+  const cards = projectProgram(ast, manifest);
+
+  assert.equal(cards[0].cardId, 'generic.form');
+  assert.equal(cards[0].form, 'drive');
+  assert.equal(cards[0].args.length, 3);
+  assert.deepEqual(cards[0].args[2], { type: 'var', name: 'extra', span: ast.children[0].children[3].span });
+});
+
+test('falls back to generic cards when if has extra branches', async () => {
+  const manifest = await defaultManifest();
+  const ast = parseCardCode('(if true (stop) (beep) (drive 1 2))');
+  const cards = projectProgram(ast, manifest);
+
+  assert.equal(cards[0].cardId, 'generic.form');
+  assert.equal(cards[0].form, 'if');
+  assert.equal(cards[0].args.length, 4);
+  assert.equal(cards[0].args[3].type, 'call');
+  assert.equal(cards[0].args[3].form, 'drive');
+  assert.deepEqual(cards[0].args[3].args, [1, 2]);
+});
+
+test('preserves args for value calls that use zero-param forms incorrectly', () => {
+  const ast = parseCardCode('(distance-cm 1)');
+
+  assert.deepEqual(projectValue(ast.children[0]).args, [1]);
+});

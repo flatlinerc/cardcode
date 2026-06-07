@@ -12,6 +12,7 @@ function projectStatement(expr, manifest, id) {
 
   const form = expr.children[0].value;
   if (form === 'define') return projectDefine(expr, manifest, id);
+  if (form === 'do') return projectSequenceCard(expr, manifest, id, 'control.do', [], 1);
   if (form === 'repeat') return projectSequenceCard(expr, manifest, id, 'control.repeat', ['count'], 2);
   if (form === 'when') return projectSequenceCard(expr, manifest, id, 'control.when', ['condition'], 2);
   if (form === 'while') return projectSequenceCard(expr, manifest, id, 'control.while', ['condition'], 2);
@@ -19,6 +20,7 @@ function projectStatement(expr, manifest, id) {
 
   const card = chooseCard(manifest, form, ['command', 'binding', 'control']);
   if (!card) return genericExpressionCard(expr, id);
+  if (!hasExactArgCount(expr, card.params.length)) return genericExpressionCard(expr, id);
 
   const args = expr.children.slice(1);
   const params = {};
@@ -32,6 +34,9 @@ function projectStatement(expr, manifest, id) {
 function projectDefine(expr, manifest, id) {
   const head = expr.children[1];
   if (head?.type === 'list') {
+    if (expr.children.length < 3 || head.children[0]?.type !== 'symbol' || !head.children.slice(1).every((p) => p.type === 'symbol')) {
+      return genericExpressionCard(expr, id);
+    }
     const card = manifest.byId.get('binding.define-func');
     const name = head.children[0]?.value || 'function';
     const params = head.children.slice(1).map((p) => p.value);
@@ -44,6 +49,7 @@ function projectDefine(expr, manifest, id) {
     };
   }
 
+  if (expr.children.length !== 3 || head?.type !== 'symbol') return genericExpressionCard(expr, id);
   const card = manifest.byId.get('binding.define-var');
   return baseCard(id, card, expr.span, {
     name: { value: head?.value || 'x', span: head?.span || expr.span },
@@ -52,6 +58,7 @@ function projectDefine(expr, manifest, id) {
 }
 
 function projectSequenceCard(expr, manifest, id, cardId, paramNames, childStart) {
+  if (expr.children.length < childStart) return genericExpressionCard(expr, id);
   const card = manifest.byId.get(cardId);
   const params = {};
   for (let i = 0; i < paramNames.length; i++) {
@@ -65,6 +72,7 @@ function projectSequenceCard(expr, manifest, id, cardId, paramNames, childStart)
 }
 
 function projectIf(expr, manifest, id) {
+  if (expr.children.length !== 4) return genericExpressionCard(expr, id);
   const card = manifest.byId.get('control.if');
   const condition = expr.children[1];
   return {
@@ -80,6 +88,10 @@ function projectIf(expr, manifest, id) {
 
 function chooseCard(manifest, form, kinds) {
   return (manifest.byForm.get(form) || []).find((card) => kinds.includes(card.kind));
+}
+
+function hasExactArgCount(expr, count) {
+  return expr.children.length === count + 1;
 }
 
 function baseCard(id, manifestCard, span, params) {
@@ -106,7 +118,7 @@ export function projectValue(expr) {
   }
   if (expr.type === 'list') {
     const form = expr.children[0]?.value || '';
-    if (ZERO_PARAM_FORMS.has(form)) return { type: 'call', form, args: [], span: expr.span };
+    if (ZERO_PARAM_FORMS.has(form) && expr.children.length === 1) return { type: 'call', form, args: [], span: expr.span };
     return {
       type: 'call',
       form,
