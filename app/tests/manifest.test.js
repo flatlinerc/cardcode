@@ -25,3 +25,39 @@ test('manifest validation rejects duplicate card ids', () => {
     ]
   }), /duplicate card id 'x'/);
 });
+
+test('manifest validation rejects params without labels', () => {
+  assert.throws(() => loadManifestFromObject({
+    manifestVersion: 1,
+    language: 'cardcode',
+    cards: [
+      {
+        id: 'x',
+        form: 'drive',
+        kind: 'command',
+        category: 'motion',
+        label: 'A',
+        template: '(drive {{speed}})',
+        params: [{ name: 'speed', kind: 'expression', default: 40 }]
+      }
+    ]
+  }), /param speed: label must be a non-empty string/);
+});
+
+test('manifest validation rejects params without defaults', () => {
+  assert.throws(() => loadManifestFromObject({
+    manifestVersion: 1,
+    language: 'cardcode',
+    cards: [
+      {
+        id: 'x',
+        form: 'drive',
+        kind: 'command',
+        category: 'motion',
+        label: 'A',
+        template: '(drive {{speed}})',
+        params: [{ name: 'speed', kind: 'expression', label: 'speed' }]
+      }
+    ]
+  }), /param speed: default is required/);
+});

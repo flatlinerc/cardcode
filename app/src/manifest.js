@@ -48,5 +48,7 @@ function validateParam(param) {
   if (!param || typeof param !== 'object') throw new Error('param must be an object');
   if (typeof param.name !== 'string' || param.name.length === 0) throw new Error('param name must be a non-empty string');
   if (typeof param.kind !== 'string' || param.kind.length === 0) throw new Error(`param ${param.name}: kind must be a non-empty string`);
+  if (typeof param.label !== 'string' || param.label.length === 0) throw new Error(`param ${param.name}: label must be a non-empty string`);
+  if (!Object.hasOwn(param, 'default')) throw new Error(`param ${param.name}: default is required`);
   return { ...param };
 }
