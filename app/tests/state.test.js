@@ -33,3 +33,46 @@ test('cardsForSpan maps overlapping spans', () => {
 
   assert.deepEqual(hits.map((card) => card.id), ['a', 'b']);
 });
+
+test('node spans map to the most specific nested card', () => {
+  const parentSpan = { startOffset: 0, endOffset: 100 };
+  const childSpan = { startOffset: 10, endOffset: 20 };
+  const innerChildSpan = { startOffset: 12, endOffset: 18 };
+  const branchChildSpan = { startOffset: 30, endOffset: 40 };
+  let state = reduceState(createInitialState(), {
+    type: 'edit',
+    source: '',
+    cards: [
+      {
+        id: 'parent-repeat',
+        span: parentSpan,
+        children: [
+          { id: 'child-drive', span: childSpan }
+        ],
+        branches: {
+          else: [
+            { id: 'branch-child', span: branchChildSpan }
+          ]
+        }
+      }
+    ]
+  });
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'start', span: parentSpan } });
+  assert.deepEqual([...state.activeCardIds], ['parent-repeat']);
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'start', span: childSpan } });
+  assert.deepEqual([...state.activeCardIds].sort(), ['child-drive', 'parent-repeat']);
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'done', span: childSpan } });
+  assert.deepEqual([...state.activeCardIds], ['parent-repeat']);
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'start', span: innerChildSpan } });
+  assert.deepEqual([...state.activeCardIds].sort(), ['child-drive', 'parent-repeat']);
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'done', span: innerChildSpan } });
+  assert.deepEqual([...state.activeCardIds], ['parent-repeat']);
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'start', span: branchChildSpan } });
+  assert.deepEqual([...state.activeCardIds].sort(), ['branch-child', 'parent-repeat']);
+});

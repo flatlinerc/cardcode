@@ -59,7 +59,7 @@ function applyRuntimeMessage(state, message) {
 function applyNodeMessage(state, message) {
   const activeCardIds = new Set(state.activeCardIds);
   const erroredCardIds = new Set(state.erroredCardIds);
-  const hits = message.span ? cardsForSpan(flattenCards(state.cards), message.span) : [];
+  const hits = message.span ? cardsForNodeSpan(state.cards, message.span) : [];
   for (const card of hits) {
     if (message.event === 'start') activeCardIds.add(card.id);
     if (message.event === 'done' || message.event === 'skipped') activeCardIds.delete(card.id);
@@ -70,6 +70,15 @@ function applyNodeMessage(state, message) {
 
 export function cardsForSpan(cards, span) {
   return cards.filter((card) => card.span && overlaps(card.span, span));
+}
+
+export function cardsForNodeSpan(cards, span) {
+  const hits = cardsForSpan(flattenCards(cards), span);
+  const exactHits = hits.filter((card) => sameSpan(card.span, span));
+  if (exactHits.length > 0) return exactHits;
+
+  const smallestSize = Math.min(...hits.map((card) => spanSize(card.span)));
+  return hits.filter((card) => spanSize(card.span) === smallestSize);
 }
 
 export function flattenCards(cards) {
@@ -86,4 +95,12 @@ export function flattenCards(cards) {
 
 function overlaps(a, b) {
   return a.startOffset < b.endOffset && b.startOffset < a.endOffset;
+}
+
+function sameSpan(a, b) {
+  return a.startOffset === b.startOffset && a.endOffset === b.endOffset;
+}
+
+function spanSize(span) {
+  return span.endOffset - span.startOffset;
 }
