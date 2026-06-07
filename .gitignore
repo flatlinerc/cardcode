@@ -4,3 +4,4 @@
 *.exe
 compile_commands.json
 .cache/
+.worktrees/
