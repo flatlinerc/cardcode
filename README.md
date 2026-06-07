@@ -169,6 +169,21 @@ printf '%s\n' '{"type":"run","source":"(repeat 4 (drive 40 1000) (turn-right 90)
   | ./build/cardcode-harness
 ```
 
+### Browser card UI
+
+The browser UI lives in `app/` and talks to the same JSON protocol as a robot.
+
+```bash
+cmake -S . -B build
+cmake --build build
+websocketd --port=8080 ./build/cardcode-harness
+python3 -m http.server 9000 --directory app
+```
+
+Open `http://localhost:9000`, connect to `ws://localhost:8080`, and run the
+current CardCode program. The mock harness can also receive sensor overrides
+from the UI.
+
 ## Embedded integration (Milestone 5)
 
 The engine is built so it can drop into ESP32 / ESP-IDF firmware with the host
