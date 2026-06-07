@@ -55,12 +55,27 @@ function writeSequence(ctx, card, indent, form, firstArg) {
 
 function writeIf(ctx, card, indent) {
   ctx.source += `${pad(indent)}(if ${emitValue(card.params.condition.value)}`;
-  const thenCard = card.branches.then[0];
-  const elseCard = card.branches.else[0];
   ctx.source += '\n';
-  thenCard ? writeCard(ctx, thenCard, indent + 1) : ctx.source += `${pad(indent + 1)}(do)`;
+  writeBranch(ctx, card.branches.then || [], indent + 1);
   ctx.source += '\n';
-  elseCard ? writeCard(ctx, elseCard, indent + 1) : ctx.source += `${pad(indent + 1)}(do)`;
+  writeBranch(ctx, card.branches.else || [], indent + 1);
+  ctx.source += ')';
+}
+
+function writeBranch(ctx, branchCards, indent) {
+  if (branchCards.length === 0) {
+    ctx.source += `${pad(indent)}(do)`;
+    return;
+  }
+  if (branchCards.length === 1) {
+    writeCard(ctx, branchCards[0], indent);
+    return;
+  }
+  ctx.source += `${pad(indent)}(do`;
+  for (const child of branchCards) {
+    ctx.source += '\n';
+    writeCard(ctx, child, indent + 1);
+  }
   ctx.source += ')';
 }
 

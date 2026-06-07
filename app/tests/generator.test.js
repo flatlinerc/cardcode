@@ -50,3 +50,24 @@ test('preserves unsafe integer text when generating values', async () => {
 
   assert.equal(generated.source, '(drive 9007199254740993 1000)');
 });
+
+test('generates all cards in multi-card if branches', async () => {
+  const [ifCard] = await cardsFromSource('(if true (stop) (beep))');
+  const [stopCard, beepCard, driveCard, waitCard] = await cardsFromSource('(stop) (beep) (drive 10 20) (wait 30)');
+  stopCard.id = 'then-stop';
+  beepCard.id = 'then-beep';
+  driveCard.id = 'else-drive';
+  waitCard.id = 'else-wait';
+  ifCard.branches = {
+    then: [stopCard, beepCard],
+    else: [driveCard, waitCard]
+  };
+
+  const generated = generateProgram([ifCard]);
+
+  assert.equal(generated.source, '(if true\n  (do\n    (stop)\n    (beep))\n  (do\n    (drive 10 20)\n    (wait 30)))');
+  assert.ok(generated.cardSpans.has(stopCard.id));
+  assert.ok(generated.cardSpans.has(beepCard.id));
+  assert.ok(generated.cardSpans.has(driveCard.id));
+  assert.ok(generated.cardSpans.has(waitCard.id));
+});
