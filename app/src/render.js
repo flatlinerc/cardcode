@@ -1,6 +1,7 @@
 export function renderApp(state, actions) {
   document.getElementById('status').textContent = state.status;
-  document.getElementById('code-view').value = state.source;
+  const codeView = document.getElementById('code-view');
+  if (codeView.value !== state.source) codeView.value = state.source;
   renderCards(document.getElementById('blocks-view'), state.cards, state);
   renderDiagnostics(document.getElementById('diagnostics'), state.diagnostics);
   renderTelemetry(document.getElementById('telemetry'), state.telemetry);

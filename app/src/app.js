@@ -58,32 +58,57 @@ const actions = {
 async function boot() {
   render();
   manifest = await loadManifest();
-  applySource(DEFAULT_SOURCE);
+  if (state.source === '') {
+    applySource(DEFAULT_SOURCE, { canonicalize: true });
+  } else {
+    applySource(state.source);
+  }
 }
 
-function applySource(source) {
+function applySource(source, options = {}) {
   if (!manifest) {
     state = { ...state, source };
     render();
     return;
   }
 
-  try {
-    const ast = parseCardCode(source);
-    const cards = projectProgram(ast, manifest);
-    const generated = generateProgram(cards);
-    state = reduceState(state, { type: 'edit', source: generated.source, cards });
+  const result = applySourceToState(state, manifest, source, options);
+  state = result.state;
+  if (result.ok) {
     scheduleCompile();
-  } catch (err) {
-    state = {
-      ...state,
-      source,
-      diagnostics: [{ severity: 'error', message: err.message, span: err.span }],
-      activeCardIds: new Set(),
-      erroredCardIds: new Set()
-    };
   }
   render();
+}
+
+export function applySourceToState(currentState, manifestValue, source, options = {}) {
+  try {
+    const ast = parseCardCode(source);
+    const cards = projectProgram(ast, manifestValue);
+    const generated = generateProgram(cards);
+    const nextSource = options.canonicalize ? generated.source : source;
+    const nextState = reduceState(currentState, { type: 'edit', source: nextSource, cards });
+    return {
+      ok: true,
+      generated,
+      state: {
+        ...nextState,
+        generatedSource: generated.source,
+        cardSpans: generated.cardSpans
+      }
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err,
+      state: {
+        ...currentState,
+        source,
+        diagnostics: [{ severity: 'error', message: err.message, span: err.span }],
+        activeCardIds: new Set(),
+        erroredCardIds: new Set()
+      }
+    };
+  }
 }
 
 function scheduleCompile() {
@@ -112,11 +137,13 @@ function render() {
   renderApp(state, actions);
 }
 
-boot().catch((err) => {
-  state = {
-    ...state,
-    status: err.message,
-    diagnostics: [{ severity: 'error', message: err.message }]
-  };
-  render();
-});
+if (typeof document !== 'undefined') {
+  boot().catch((err) => {
+    state = {
+      ...state,
+      status: err.message,
+      diagnostics: [{ severity: 'error', message: err.message }]
+    };
+    render();
+  });
+}

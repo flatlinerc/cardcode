@@ -40,7 +40,8 @@ class FakeElement {
     this.classList = new FakeClassList(this);
     this.className = '';
     this.textContent = '';
-    this.value = '';
+    this._value = '';
+    this.valueSetCount = 0;
     this.checked = false;
     this.onclick = null;
     this.oninput = null;
@@ -59,6 +60,15 @@ class FakeElement {
 
   get innerHTML() {
     return this.textContent;
+  }
+
+  set value(nextValue) {
+    this.valueSetCount++;
+    this._value = nextValue;
+  }
+
+  get value() {
+    return this._value;
   }
 }
 
@@ -187,6 +197,35 @@ test('renderApp renders cards recursively and binds static controls once', async
   ]);
   assert.equal(document.getElementById('panel').classList.has('show-code'), true);
   assert.equal(document.getElementById('code-tab').classList.has('active'), true);
+});
+
+test('renderApp does not rewrite an unchanged code textarea value', async () => {
+  const { renderApp } = await import('../src/render.js?render-preserve-test');
+  const document = installDocument();
+  const codeView = document.getElementById('code-view');
+  codeView.value = '(drive 40 1000)\n';
+  const writesBeforeRender = codeView.valueSetCount;
+
+  renderApp({
+    status: 'Ready',
+    source: '(drive 40 1000)\n',
+    activeCardIds: new Set(),
+    erroredCardIds: new Set(),
+    diagnostics: [],
+    telemetry: [],
+    cards: [],
+    sensors: {}
+  }, {
+    connect() {},
+    run() {},
+    stop() {},
+    reset() {},
+    editSource() {},
+    setSensor() {}
+  });
+
+  assert.equal(codeView.value, '(drive 40 1000)\n');
+  assert.equal(codeView.valueSetCount, writesBeforeRender);
 });
 
 function findCardByTitle(root, title) {
