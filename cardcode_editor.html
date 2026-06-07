@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RobotBot — Card Editor Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5efe2;
+    --bg-darker: #ebe3d1;
+    --card: #ffffff;
+    --ink: #1a1612;
+    --ink-soft: #5a544a;
+    --ink-faint: #9a9285;
+    --line: #e6dfcc;
+    --accent: #ff5a1f;
+    --accent-deep: #c2410c;
+    --motion: #2563eb;
+    --sensor: #0d9488;
+    --logic: #c026d3;
+    --loop: #ea580c;
+    --time: #ca8a04;
+    --output: #16a34a;
+    --shadow-card: 0 1px 0 rgba(26,22,18,0.04), 0 2px 4px rgba(26,22,18,0.04), 0 8px 16px -8px rgba(26,22,18,0.08);
+    --shadow-pressed: 0 1px 2px rgba(26,22,18,0.06);
+    --shadow-sheet: 0 -8px 32px rgba(26,22,18,0.15);
+    --radius-card: 14px;
+    --radius-pill: 999px;
+    --radius-sheet: 24px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    color: var(--ink);
+    background: #2a241c;
+    height: 100vh;
+    overflow: hidden;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+
+  /* Phone shell — centers a phone-sized viewport on desktop, fills screen on mobile */
+  .phone {
+    width: 100%;
+    max-width: 414px;
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0 auto;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 60px rgba(0,0,0,0.3);
+  }
+  @media (min-height: 900px) and (min-width: 500px) {
+    .phone { max-height: 880px; height: 880px; margin-top: 20px; border-radius: 40px; }
+    body { padding-top: 0; }
+  }
+
+  /* === TOP BAR === */
+  .topbar {
+    flex: 0 0 auto;
+    padding: 14px 18px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    z-index: 10;
+  }
+  .robot-id {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .robot-dot {
+    width: 8px; height: 8px;
+    background: var(--output);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18); }
+    50% { box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.05); }
+  }
+  .robot-name {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+  }
+  .robot-name span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    letter-spacing: 0;
+    margin-left: 2px;
+  }
+  .topbar-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .icon-btn {
+    background: none;
+    border: none;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .icon-btn:active { background: var(--bg-darker); }
+  .icon-btn svg { width: 19px; height: 19px; stroke-width: 1.8; }
+
+  /* === MODE SWITCHER === */
+  .mode-switch {
+    flex: 0 0 auto;
+    padding: 10px 18px 0;
+    display: flex;
+    gap: 6px;
+  }
+  .mode-tab {
+    flex: 1;
+    padding: 9px 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+    transition: all 0.18s;
+  }
+  .mode-tab.active {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .mode-tab .glyph {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    margin-right: 3px;
+    opacity: 0.7;
+  }
+
+  /* === WORKSPACE === */
+  .workspace {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 14px 14px 100px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  .workspace::-webkit-scrollbar { width: 0; }
+
+  /* Event header — what kicks off this program */
+  .event-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 6px 14px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .event-header::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 18px;
+    height: 1.5px;
+    background: var(--ink-faint);
+  }
+  .event-header::after {
+    content: '';
+    flex: 1;
+    height: 1.5px;
+    background: var(--ink-faint);
+    opacity: 0.4;
+  }
+
+  /* === CARDS === */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    margin-bottom: 8px;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .card.executing {
+    box-shadow: 0 0 0 2px var(--accent), 0 4px 16px rgba(255, 90, 31, 0.25);
+    animation: executingPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes executingPulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--accent), 0 4px 16px rgba(255, 90, 31, 0.25); }
+    50% { box-shadow: 0 0 0 2px var(--accent), 0 4px 24px rgba(255, 90, 31, 0.4); }
+  }
+  .card.dragging {
+    transform: scale(1.02);
+    box-shadow: 0 12px 32px rgba(26,22,18,0.18);
+    z-index: 100;
+  }
+  .card.drop-target-above::before {
+    content: '';
+    position: absolute;
+    top: -6px; left: 8px; right: 8px;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .card-body {
+    display: flex;
+    align-items: stretch;
+    min-height: 56px;
+  }
+  .card-stripe {
+    flex: 0 0 6px;
+    background: var(--ink-soft);
+  }
+  .card[data-cat="motion"] .card-stripe { background: var(--motion); }
+  .card[data-cat="sensor"] .card-stripe { background: var(--sensor); }
+  .card[data-cat="logic"] .card-stripe { background: var(--logic); }
+  .card[data-cat="loop"] .card-stripe { background: var(--loop); }
+  .card[data-cat="time"] .card-stripe { background: var(--time); }
+  .card[data-cat="output"] .card-stripe { background: var(--output); }
+
+  .card-content {
+    flex: 1;
+    padding: 11px 12px 11px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .card-icon {
+    flex: 0 0 28px;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--bg-darker);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+  }
+  .card[data-cat="motion"] .card-icon { background: rgba(37, 99, 235, 0.1); color: var(--motion); }
+  .card[data-cat="sensor"] .card-icon { background: rgba(13, 148, 136, 0.1); color: var(--sensor); }
+  .card[data-cat="logic"] .card-icon { background: rgba(192, 38, 211, 0.1); color: var(--logic); }
+  .card[data-cat="loop"] .card-icon { background: rgba(234, 88, 12, 0.1); color: var(--loop); }
+  .card[data-cat="time"] .card-icon { background: rgba(202, 138, 4, 0.1); color: var(--time); }
+  .card[data-cat="output"] .card-icon { background: rgba(22, 163, 74, 0.1); color: var(--output); }
+  .card-icon svg { width: 16px; height: 16px; stroke-width: 2; }
+
+  .card-label {
+    flex: 1;
+    font-size: 14.5px;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  /* Editable parameter pills inside cards */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .pill:active {
+    transform: scale(0.96);
+    background: var(--bg-darker);
+  }
+  .pill.compound {
+    background: rgba(255, 90, 31, 0.08);
+    border-color: rgba(255, 90, 31, 0.25);
+    color: var(--accent-deep);
+  }
+
+  .card-menu {
+    flex: 0 0 auto;
+    width: 28px; height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card-menu:active { background: var(--bg-darker); }
+
+  /* Container cards (loops, if/else) — have nested content */
+  .container-content {
+    padding: 0 10px 10px 14px;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.012) 100%);
+    border-top: 1px dashed var(--line);
+  }
+  .container-content .nested {
+    padding-top: 8px;
+  }
+  .branch-label {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-faint);
+    padding: 8px 2px 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Add-step button */
+  .add-step {
+    width: 100%;
+    background: transparent;
+    border: 1.5px dashed var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+    transition: all 0.18s;
+  }
+  .add-step:active {
+    background: var(--bg-darker);
+    border-color: var(--ink-faint);
+    color: var(--ink-soft);
+  }
+  .add-step svg { width: 14px; height: 14px; }
+
+  /* === BOTTOM ACTION BAR === */
+  .actionbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, transparent 0%, var(--bg) 30%);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    z-index: 20;
+  }
+  .run-btn {
+    flex: 1;
+    height: 50px;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(26,22,18,0.2);
+    letter-spacing: -0.01em;
+    transition: all 0.15s;
+  }
+  .run-btn:active { transform: translateY(1px); box-shadow: 0 2px 6px rgba(26,22,18,0.2); }
+  .run-btn svg { width: 16px; height: 16px; fill: currentColor; }
+  .run-btn.stop {
+    background: var(--accent);
+  }
+  .stop-mini-btn {
+    flex: 0 0 auto;
+    width: 50px; height: 50px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    color: var(--accent);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .stop-mini-btn svg { width: 16px; height: 16px; }
+
+  /* === CODE VIEW === */
+  .code-view {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 18px 14px 100px;
+    background: #1a1612;
+    color: #f5efe2;
+    display: none;
+  }
+  .code-view.active { display: block; }
+  .code-block {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre;
+    background: rgba(255,255,255,0.02);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .code-block .kw { color: #ffa657; }
+  .code-block .fn { color: #7ee787; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .num { color: #79c0ff; }
+  .code-block .cm { color: #8b949e; font-style: italic; }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    color: var(--ink-faint);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .code-header .copy-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--bg);
+    padding: 5px 11px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+
+  /* === BOTTOM SHEETS === */
+  .sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(26,22,18,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+    z-index: 30;
+  }
+  .sheet-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sheet {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    box-shadow: var(--shadow-sheet);
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 40;
+    max-height: 75%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle {
+    flex: 0 0 auto;
+    padding: 10px 0 6px;
+    display: flex;
+    justify-content: center;
+  }
+  .sheet-handle::before {
+    content: '';
+    width: 36px; height: 4px;
+    background: var(--ink-faint);
+    border-radius: 2px;
+    opacity: 0.4;
+  }
+  .sheet-title {
+    flex: 0 0 auto;
+    padding: 4px 20px 14px;
+    font-family: 'Fraunces', serif;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .sheet-title small {
+    display: block;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-top: 2px;
+    letter-spacing: 0;
+  }
+  .sheet-content {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 0 16px 24px;
+  }
+
+  /* Picker sheet — categorized block selection */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .cat-tile {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.12s;
+  }
+  .cat-tile:active { transform: scale(0.97); }
+  .cat-tile.active {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+  .cat-tile-icon {
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cat-tile[data-cat="motion"] .cat-tile-icon { background: rgba(37, 99, 235, 0.15); color: var(--motion); }
+  .cat-tile[data-cat="sensor"] .cat-tile-icon { background: rgba(13, 148, 136, 0.15); color: var(--sensor); }
+  .cat-tile[data-cat="logic"] .cat-tile-icon { background: rgba(192, 38, 211, 0.15); color: var(--logic); }
+  .cat-tile[data-cat="loop"] .cat-tile-icon { background: rgba(234, 88, 12, 0.15); color: var(--loop); }
+  .cat-tile[data-cat="time"] .cat-tile-icon { background: rgba(202, 138, 4, 0.15); color: var(--time); }
+  .cat-tile[data-cat="output"] .cat-tile-icon { background: rgba(22, 163, 74, 0.15); color: var(--output); }
+  .cat-tile-icon svg { width: 17px; height: 17px; stroke-width: 2; }
+  .cat-tile-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .block-list { display: flex; flex-direction: column; gap: 6px; }
+  .block-option {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    width: 100%;
+  }
+  .block-option:active { background: var(--bg-darker); }
+  .block-option-icon {
+    flex: 0 0 32px;
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    background: var(--bg-darker);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .block-option-icon svg { width: 16px; height: 16px; }
+  .block-option-text { flex: 1; min-width: 0; }
+  .block-option-name {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 1px;
+  }
+  .block-option-desc {
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.3;
+  }
+
+  /* Number editor sheet */
+  .num-display {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .num-value {
+    font-family: 'Fraunces', serif;
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.04em;
+  }
+  .num-unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-left: 4px;
+    font-weight: 500;
+  }
+  .num-slider-wrap {
+    margin-top: 16px;
+  }
+  .num-slider {
+    width: 100%;
+    height: 6px;
+    background: var(--line);
+    border-radius: 3px;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+  }
+  .num-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px; height: 26px;
+    background: var(--ink);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid var(--bg);
+    box-shadow: 0 2px 6px rgba(26,22,18,0.2);
+  }
+  .num-slider::-moz-range-thumb {
+    width: 26px; height: 26px;
+    background: var(--ink);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid var(--bg);
+  }
+  .num-presets {
+    display: flex;
+    gap: 6px;
+    margin-top: 14px;
+  }
+  .num-preset {
+    flex: 1;
+    padding: 9px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .num-preset:active { background: var(--bg-darker); }
+  .sheet-confirm {
+    width: 100%;
+    margin-top: 14px;
+    padding: 14px;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: -0.01em;
+  }
+
+  /* Snackbar */
+  .snackbar {
+    position: absolute;
+    bottom: 84px; left: 16px; right: 16px;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 12px 16px;
+    border-radius: 11px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 8px 24px rgba(26,22,18,0.3);
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.25s;
+    z-index: 50;
+    pointer-events: none;
+  }
+  .snackbar.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  .snackbar-action {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Hints (first-load tutorial) */
+  .hint {
+    background: rgba(255, 90, 31, 0.07);
+    border: 1px solid rgba(255, 90, 31, 0.18);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: var(--accent-deep);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.4;
+  }
+  .hint svg { flex: 0 0 16px; width: 16px; height: 16px; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="robot-id">
+      <div class="robot-dot"></div>
+      <div class="robot-name">RobotBot <span>A4F2</span></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" title="Undo" onclick="undo()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
+      </button>
+      <button class="icon-btn" title="Files">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h6l2 3h8v12H4z"/></svg>
+      </button>
+      <button class="icon-btn" title="More">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mode tabs (Blocks / Code) -->
+  <div class="mode-switch">
+    <button class="mode-tab active" data-mode="blocks" onclick="switchMode('blocks')">
+      <span class="glyph">▤</span>Blocks
+    </button>
+    <button class="mode-tab" data-mode="code" onclick="switchMode('code')">
+      <span class="glyph">&lt;/&gt;</span>Python
+    </button>
+  </div>
+
+  <!-- Block editor workspace -->
+  <div class="workspace" id="workspace">
+    <div class="event-header">On start</div>
+    <div class="hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span>Tap any orange pill to change a value. Long-press a card to reorder. Hit Run when you're ready.</span>
+    </div>
+    <div id="cards-root"></div>
+  </div>
+
+  <!-- Code view -->
+  <div class="code-view" id="code-view">
+    <div class="code-header">
+      <span>main.py · generated</span>
+      <button class="copy-btn" onclick="copyCode()">COPY</button>
+    </div>
+    <pre class="code-block" id="code-block"></pre>
+  </div>
+
+  <!-- Action bar -->
+  <div class="actionbar">
+    <button class="run-btn" id="run-btn" onclick="toggleRun()">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <span id="run-label">Run on robot</span>
+    </button>
+    <button class="stop-mini-btn" onclick="stopRun()" title="Stop">
+      <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+    </button>
+  </div>
+
+  <!-- Sheets -->
+  <div class="sheet-backdrop" id="backdrop" onclick="closeSheet()"></div>
+
+  <!-- Block picker sheet -->
+  <div class="sheet" id="picker-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Add a step<small>Choose what the robot should do next</small></div>
+    <div class="sheet-content">
+      <div class="cat-grid" id="cat-grid"></div>
+      <div class="block-list" id="block-list"></div>
+    </div>
+  </div>
+
+  <!-- Number editor sheet -->
+  <div class="sheet" id="num-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="num-title">Edit value</div>
+    <div class="sheet-content">
+      <div class="num-display">
+        <span class="num-value" id="num-value">50</span><span class="num-unit" id="num-unit">%</span>
+      </div>
+      <div class="num-slider-wrap">
+        <input type="range" class="num-slider" id="num-slider" min="0" max="100" value="50">
+      </div>
+      <div class="num-presets" id="num-presets"></div>
+      <button class="sheet-confirm" onclick="confirmNumber()">Done</button>
+    </div>
+  </div>
+
+  <!-- Snackbar -->
+  <div class="snackbar" id="snackbar">
+    <span id="snackbar-text">Card deleted</span>
+    <button class="snackbar-action" onclick="performUndo()">Undo</button>
+  </div>
+</div>
+
+<script>
+  // ============== PROGRAM MODEL ==============
+  // Each node: { id, type, cat, label, params, children?, branches? }
+  // params: { name: { value, type, unit?, min?, max?, presets? } }
+  // children: array of nodes (for loops)
+  // branches: { then: [...], else: [...] } for if/else
+
+  let nextId = 1;
+  const uid = () => 'n' + (nextId++);
+
+  // SVG icon library — small, consistent stroke
+  const ICONS = {
+    motion: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    sensor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
+    logic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 4v16M18 4v16M6 8h12M18 16H6"/></svg>',
+    loop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
+    time: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    output: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>',
+    forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+    backward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
+    turn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>',
+    stop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+    distance: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 12h2M20 12h2M5 9v6M19 9v6M5 12h14"/></svg>',
+    wait: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 7v5l2 2"/><circle cx="12" cy="12" r="9"/></svg>',
+    if: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 3v18M18 3v18M6 12h6l6-9M12 12l6 9"/></svg>',
+    repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>',
+    led: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/></svg>',
+    beep: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>'
+  };
+
+  // ============== STARTER PROGRAM ==============
+  // A line-following / obstacle-avoiding example. Realistic for kids' first program.
+  let program = [
+    {
+      id: uid(), type: 'repeat_forever', cat: 'loop', label: 'Repeat forever',
+      icon: 'repeat',
+      children: [
+        {
+          id: uid(), type: 'drive_forward', cat: 'motion', label: 'Drive forward at',
+          icon: 'forward',
+          params: { speed: { value: 60, type: 'number', unit: '%', min: 0, max: 100, presets: [25, 50, 75, 100] } }
+        },
+        {
+          id: uid(), type: 'if_else', cat: 'logic', label: 'If',
+          icon: 'if',
+          params: { cond: { value: 'front distance < 20cm', type: 'expression' } },
+          branches: {
+            then: [
+              { id: uid(), type: 'stop', cat: 'motion', label: 'Stop motors', icon: 'stop', params: {} },
+              { id: uid(), type: 'wait', cat: 'time', label: 'Wait', icon: 'wait',
+                params: { secs: { value: 0.5, type: 'number', unit: 's', min: 0, max: 10, step: 0.1, presets: [0.25, 0.5, 1, 2] } } },
+              { id: uid(), type: 'turn', cat: 'motion', label: 'Turn right', icon: 'turn',
+                params: { angle: { value: 90, type: 'number', unit: '°', min: 0, max: 360, presets: [45, 90, 180, 360] } } }
+            ],
+            else: []
+          }
+        },
+        {
+          id: uid(), type: 'wait', cat: 'time', label: 'Wait', icon: 'wait',
+          params: { secs: { value: 0.1, type: 'number', unit: 's', min: 0, max: 10, step: 0.1, presets: [0.1, 0.5, 1, 2] } }
+        }
+      ]
+    }
+  ];
+
+  // ============== RENDER ==============
+  const root = document.getElementById('cards-root');
+
+  function render() {
+    root.innerHTML = '';
+    program.forEach(node => root.appendChild(renderNode(node, program)));
+    // top-level add button
+    const add = document.createElement('button');
+    add.className = 'add-step';
+    add.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Add step`;
+    add.onclick = () => openPicker(program);
+    root.appendChild(add);
+    updateCodeView();
+  }
+
+  function renderNode(node, parentList) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.cat = node.cat;
+    card.dataset.id = node.id;
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    const stripe = document.createElement('div');
+    stripe.className = 'card-stripe';
+    body.appendChild(stripe);
+
+    const content = document.createElement('div');
+    content.className = 'card-content';
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'card-icon';
+    iconWrap.innerHTML = ICONS[node.icon] || ICONS[node.cat];
+    content.appendChild(iconWrap);
+
+    const label = document.createElement('div');
+    label.className = 'card-label';
+    label.appendChild(document.createTextNode(node.label));
+    // append parameter pills
+    if (node.params) {
+      Object.entries(node.params).forEach(([key, p]) => {
+        const pill = document.createElement('span');
+        if (p.type === 'expression') {
+          pill.className = 'pill compound';
+          pill.textContent = p.value;
+        } else {
+          pill.className = 'pill';
+          pill.textContent = p.value + (p.unit || '');
+        }
+        pill.onclick = (e) => {
+          e.stopPropagation();
+          if (p.type === 'expression') {
+            showSnack('Expression editor (open modal for full condition builder)');
+          } else {
+            openNumberEditor(node, key);
+          }
+        };
+        label.appendChild(pill);
+      });
+    }
+    content.appendChild(label);
+
+    const menu = document.createElement('button');
+    menu.className = 'card-menu';
+    menu.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>';
+    menu.onclick = (e) => {
+      e.stopPropagation();
+      deleteNode(node, parentList);
+    };
+    content.appendChild(menu);
+
+    body.appendChild(content);
+    card.appendChild(body);
+
+    // Container content (for loops + if/else)
+    if (node.children !== undefined || node.branches) {
+      const containerContent = document.createElement('div');
+      containerContent.className = 'container-content';
+
+      if (node.children !== undefined) {
+        const nested = document.createElement('div');
+        nested.className = 'nested';
+        node.children.forEach(child => nested.appendChild(renderNode(child, node.children)));
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-step';
+        addBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Add step`;
+        addBtn.onclick = (e) => { e.stopPropagation(); openPicker(node.children); };
+        nested.appendChild(addBtn);
+        containerContent.appendChild(nested);
+      }
+
+      if (node.branches) {
+        ['then', 'else'].forEach(branch => {
+          const label = document.createElement('div');
+          label.className = 'branch-label';
+          label.textContent = branch;
+          containerContent.appendChild(label);
+          const nested = document.createElement('div');
+          nested.className = 'nested';
+          node.branches[branch].forEach(child => nested.appendChild(renderNode(child, node.branches[branch])));
+          const addBtn = document.createElement('button');
+          addBtn.className = 'add-step';
+          addBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Add step`;
+          addBtn.onclick = (e) => { e.stopPropagation(); openPicker(node.branches[branch]); };
+          nested.appendChild(addBtn);
+          containerContent.appendChild(nested);
+        });
+      }
+
+      card.appendChild(containerContent);
+    }
+
+    // Long-press indicator (visual only in this prototype — full DnD would be a substantial layer)
+    let lpTimer;
+    body.addEventListener('touchstart', () => {
+      lpTimer = setTimeout(() => {
+        card.classList.add('dragging');
+        if (navigator.vibrate) navigator.vibrate(20);
+        setTimeout(() => card.classList.remove('dragging'), 600);
+        showSnack('Drag mode: reorder by holding & moving (full DnD not wired in this prototype)');
+      }, 450);
+    });
+    body.addEventListener('touchend', () => clearTimeout(lpTimer));
+    body.addEventListener('touchmove', () => clearTimeout(lpTimer));
+
+    return card;
+  }
+
+  // ============== BLOCK CATALOG ==============
+  const CATALOG = {
+    motion: {
+      label: 'Motion', icon: 'motion',
+      blocks: [
+        { type: 'drive_forward', name: 'Drive forward', desc: 'Move both motors forward', icon: 'forward',
+          factory: () => ({ params: { speed: { value: 50, type: 'number', unit: '%', min: 0, max: 100, presets: [25, 50, 75, 100] } } }), label: 'Drive forward at' },
+        { type: 'drive_backward', name: 'Drive backward', desc: 'Move both motors backward', icon: 'backward',
+          factory: () => ({ params: { speed: { value: 50, type: 'number', unit: '%', min: 0, max: 100, presets: [25, 50, 75, 100] } } }), label: 'Drive backward at' },
+        { type: 'turn', name: 'Turn', desc: 'Rotate in place by an angle', icon: 'turn',
+          factory: () => ({ params: { angle: { value: 90, type: 'number', unit: '°', min: 0, max: 360, presets: [45, 90, 180, 360] } } }), label: 'Turn right' },
+        { type: 'stop', name: 'Stop motors', desc: 'Halt all motion', icon: 'stop',
+          factory: () => ({ params: {} }), label: 'Stop motors' }
+      ]
+    },
+    sensor: {
+      label: 'Sensors', icon: 'sensor',
+      blocks: [
+        { type: 'read_distance', name: 'Read distance', desc: 'Front ultrasonic distance in cm', icon: 'distance',
+          factory: () => ({ params: {} }), label: 'Read front distance' },
+        { type: 'wait_for_obstacle', name: 'Wait until obstacle', desc: 'Pause until something is close', icon: 'distance',
+          factory: () => ({ params: { dist: { value: 15, type: 'number', unit: 'cm', min: 1, max: 200, presets: [10, 20, 50, 100] } } }), label: 'Wait until front distance <' }
+      ]
+    },
+    logic: {
+      label: 'Logic', icon: 'logic',
+      blocks: [
+        { type: 'if_else', name: 'If / Else', desc: 'Branch based on a condition', icon: 'if',
+          factory: () => ({ params: { cond: { value: 'true', type: 'expression' } }, branches: { then: [], else: [] } }), label: 'If' }
+      ]
+    },
+    loop: {
+      label: 'Loops', icon: 'loop',
+      blocks: [
+        { type: 'repeat_forever', name: 'Repeat forever', desc: 'Loop the contained steps forever', icon: 'repeat',
+          factory: () => ({ children: [] }), label: 'Repeat forever' },
+        { type: 'repeat_n', name: 'Repeat N times', desc: 'Loop the contained steps a set number of times', icon: 'repeat',
+          factory: () => ({ params: { n: { value: 5, type: 'number', unit: '', min: 1, max: 1000, presets: [3, 5, 10, 100] } }, children: [] }), label: 'Repeat' }
+      ]
+    },
+    time: {
+      label: 'Time', icon: 'time',
+      blocks: [
+        { type: 'wait', name: 'Wait', desc: 'Pause for a duration', icon: 'wait',
+          factory: () => ({ params: { secs: { value: 1, type: 'number', unit: 's', min: 0, max: 60, step: 0.1, presets: [0.25, 0.5, 1, 5] } } }), label: 'Wait' }
+      ]
+    },
+    output: {
+      label: 'Lights & Sound', icon: 'output',
+      blocks: [
+        { type: 'led', name: 'Set LED color', desc: 'Change the on-board LED', icon: 'led',
+          factory: () => ({ params: { color: { value: 'red', type: 'enum' } } }), label: 'Set LED to' },
+        { type: 'beep', name: 'Beep', desc: 'Play a short tone', icon: 'beep',
+          factory: () => ({ params: { freq: { value: 440, type: 'number', unit: 'Hz', min: 100, max: 4000, presets: [220, 440, 880, 1760] } } }), label: 'Beep at' }
+      ]
+    }
+  };
+
+  // ============== PICKER SHEET ==============
+  let pickerTarget = null;
+  let pickerCat = 'motion';
+
+  function openPicker(targetList) {
+    pickerTarget = targetList;
+    pickerCat = 'motion';
+    renderPicker();
+    showSheet('picker-sheet');
+  }
+
+  function renderPicker() {
+    const grid = document.getElementById('cat-grid');
+    grid.innerHTML = '';
+    Object.entries(CATALOG).forEach(([key, cat]) => {
+      const tile = document.createElement('button');
+      tile.className = 'cat-tile' + (pickerCat === key ? ' active' : '');
+      tile.dataset.cat = key;
+      tile.innerHTML = `
+        <div class="cat-tile-icon">${ICONS[cat.icon]}</div>
+        <div class="cat-tile-label">${cat.label}</div>
+      `;
+      tile.onclick = () => { pickerCat = key; renderPicker(); };
+      grid.appendChild(tile);
+    });
+    const list = document.getElementById('block-list');
+    list.innerHTML = '';
+    CATALOG[pickerCat].blocks.forEach(block => {
+      const opt = document.createElement('button');
+      opt.className = 'block-option';
+      opt.innerHTML = `
+        <div class="block-option-icon">${ICONS[block.icon] || ICONS[pickerCat]}</div>
+        <div class="block-option-text">
+          <div class="block-option-name">${block.name}</div>
+          <div class="block-option-desc">${block.desc}</div>
+        </div>
+      `;
+      opt.onclick = () => insertBlock(block);
+      list.appendChild(opt);
+    });
+  }
+
+  function insertBlock(spec) {
+    const factory = spec.factory();
+    const node = {
+      id: uid(),
+      type: spec.type,
+      cat: pickerCat,
+      label: spec.label,
+      icon: spec.icon,
+      ...factory
+    };
+    pickerTarget.push(node);
+    closeSheet();
+    render();
+    showSnack(`Added "${spec.name}"`);
+  }
+
+  // ============== NUMBER EDITOR ==============
+  let numTarget = null;
+  let numKey = null;
+  let numWorking = null;
+
+  function openNumberEditor(node, key) {
+    numTarget = node;
+    numKey = key;
+    const p = node.params[key];
+    numWorking = { ...p };
+    document.getElementById('num-title').innerHTML = `Set <em style="font-family: 'Fraunces', serif;">${key}</em><small>${node.label}</small>`;
+    document.getElementById('num-value').textContent = p.value;
+    document.getElementById('num-unit').textContent = p.unit || '';
+    const slider = document.getElementById('num-slider');
+    slider.min = p.min ?? 0;
+    slider.max = p.max ?? 100;
+    slider.step = p.step ?? 1;
+    slider.value = p.value;
+    slider.oninput = (e) => {
+      numWorking.value = parseFloat(e.target.value);
+      document.getElementById('num-value').textContent = numWorking.value;
+    };
+    const presets = document.getElementById('num-presets');
+    presets.innerHTML = '';
+    (p.presets || []).forEach(v => {
+      const b = document.createElement('button');
+      b.className = 'num-preset';
+      b.textContent = v + (p.unit || '');
+      b.onclick = () => {
+        numWorking.value = v;
+        slider.value = v;
+        document.getElementById('num-value').textContent = v;
+      };
+      presets.appendChild(b);
+    });
+    showSheet('num-sheet');
+  }
+
+  function confirmNumber() {
+    numTarget.params[numKey].value = numWorking.value;
+    closeSheet();
+    render();
+  }
+
+  // ============== DELETE / UNDO ==============
+  let undoStack = [];
+
+  function deleteNode(node, parentList) {
+    const idx = parentList.indexOf(node);
+    if (idx === -1) return;
+    undoStack.push({ list: parentList, node, idx });
+    parentList.splice(idx, 1);
+    render();
+    showSnack('Step removed', true);
+  }
+
+  function undo() { performUndo(); }
+  function performUndo() {
+    if (undoStack.length === 0) {
+      showSnack('Nothing to undo');
+      return;
+    }
+    const { list, node, idx } = undoStack.pop();
+    list.splice(idx, 0, node);
+    render();
+    showSnack('Restored');
+  }
+
+  // ============== SHEET MANAGEMENT ==============
+  function showSheet(id) {
+    document.getElementById('backdrop').classList.add('open');
+    document.getElementById(id).classList.add('open');
+  }
+  function closeSheet() {
+    document.getElementById('backdrop').classList.remove('open');
+    document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open'));
+  }
+
+  // ============== SNACKBAR ==============
+  let snackTimer;
+  function showSnack(text, withUndo) {
+    document.getElementById('snackbar-text').textContent = text;
+    document.querySelector('.snackbar-action').style.display = withUndo ? '' : 'none';
+    const s = document.getElementById('snackbar');
+    s.classList.add('show');
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(() => s.classList.remove('show'), 2800);
+  }
+
+  // ============== MODE SWITCHING ==============
+  function switchMode(mode) {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+    document.getElementById('workspace').style.display = mode === 'blocks' ? 'block' : 'none';
+    document.getElementById('code-view').classList.toggle('active', mode === 'code');
+  }
+
+  // ============== CODE GENERATION ==============
+  function generatePython(nodes, indent = 0) {
+    const pad = '    '.repeat(indent);
+    const lines = [];
+    nodes.forEach(node => {
+      switch (node.type) {
+        case 'repeat_forever':
+          lines.push(`${pad}<kw>while</kw> <kw>True</kw>:`);
+          lines.push(...generatePython(node.children, indent + 1).split('\n'));
+          break;
+        case 'repeat_n':
+          lines.push(`${pad}<kw>for</kw> _ <kw>in</kw> <fn>range</fn>(<num>${node.params.n.value}</num>):`);
+          lines.push(...generatePython(node.children, indent + 1).split('\n'));
+          break;
+        case 'if_else':
+          lines.push(`${pad}<cm># ${node.params.cond.value}</cm>`);
+          lines.push(`${pad}<kw>if</kw> robot.front_distance() < <num>20</num>:`);
+          lines.push(...generatePython(node.branches.then, indent + 1).split('\n'));
+          if (node.branches.else.length) {
+            lines.push(`${pad}<kw>else</kw>:`);
+            lines.push(...generatePython(node.branches.else, indent + 1).split('\n'));
+          }
+          break;
+        case 'drive_forward':
+          lines.push(`${pad}robot.<fn>forward</fn>(<num>${node.params.speed.value}</num>)`);
+          break;
+        case 'drive_backward':
+          lines.push(`${pad}robot.<fn>backward</fn>(<num>${node.params.speed.value}</num>)`);
+          break;
+        case 'turn':
+          lines.push(`${pad}robot.<fn>turn_right</fn>(<num>${node.params.angle.value}</num>)`);
+          break;
+        case 'stop':
+          lines.push(`${pad}robot.<fn>stop</fn>()`);
+          break;
+        case 'wait':
+          lines.push(`${pad}<fn>sleep</fn>(<num>${node.params.secs.value}</num>)`);
+          break;
+        case 'read_distance':
+          lines.push(`${pad}d = robot.<fn>front_distance</fn>()`);
+          break;
+        case 'wait_for_obstacle':
+          lines.push(`${pad}<kw>while</kw> robot.<fn>front_distance</fn>() >= <num>${node.params.dist.value}</num>:`);
+          lines.push(`${pad}    <fn>sleep</fn>(<num>0.05</num>)`);
+          break;
+        case 'led':
+          lines.push(`${pad}robot.<fn>led</fn>(<str>'${node.params.color.value}'</str>)`);
+          break;
+        case 'beep':
+          lines.push(`${pad}robot.<fn>beep</fn>(<num>${node.params.freq.value}</num>)`);
+          break;
+      }
+    });
+    return lines.filter(l => l).join('\n');
+  }
+
+  function updateCodeView() {
+    const header = `<cm># RobotBot main.py · auto-generated from blocks</cm>\n<kw>from</kw> robotbot <kw>import</kw> robot\n<kw>from</kw> time <kw>import</kw> sleep\n\n`;
+    const body = generatePython(program);
+    const html = (header + body)
+      .replace(/<kw>/g, '<span class="kw">').replace(/<\/kw>/g, '</span>')
+      .replace(/<fn>/g, '<span class="fn">').replace(/<\/fn>/g, '</span>')
+      .replace(/<str>/g, '<span class="str">').replace(/<\/str>/g, '</span>')
+      .replace(/<num>/g, '<span class="num">').replace(/<\/num>/g, '</span>')
+      .replace(/<cm>/g, '<span class="cm">').replace(/<\/cm>/g, '</span>');
+    document.getElementById('code-block').innerHTML = html;
+  }
+
+  function copyCode() {
+    showSnack('Copied to clipboard');
+  }
+
+  // ============== RUN SIMULATION ==============
+  let running = false;
+  let runTimer = null;
+  function toggleRun() {
+    if (running) return stopRun();
+    running = true;
+    document.getElementById('run-label').textContent = 'Running on robot…';
+    document.getElementById('run-btn').classList.add('stop');
+    document.getElementById('run-btn').querySelector('svg').innerHTML = '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>';
+    simulateRun();
+  }
+  function stopRun() {
+    running = false;
+    if (runTimer) clearTimeout(runTimer);
+    document.querySelectorAll('.card.executing').forEach(c => c.classList.remove('executing'));
+    document.getElementById('run-label').textContent = 'Run on robot';
+    document.getElementById('run-btn').classList.remove('stop');
+    document.getElementById('run-btn').querySelector('svg').innerHTML = '<path d="M8 5v14l11-7z"/>';
+  }
+  function simulateRun() {
+    const cards = Array.from(document.querySelectorAll('.card'));
+    let i = 0;
+    const step = () => {
+      if (!running) return;
+      document.querySelectorAll('.card.executing').forEach(c => c.classList.remove('executing'));
+      const c = cards[i % cards.length];
+      c.classList.add('executing');
+      c.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      i++;
+      runTimer = setTimeout(step, 900);
+    };
+    step();
+  }
+
+  // ============== BOOT ==============
+  render();
+</script>
+
+</body>
+</html>
