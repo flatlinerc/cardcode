@@ -186,8 +186,12 @@ from the UI.
 
 ## Embedded integration (Milestone 5)
 
-The engine is built so it can drop into ESP32 / ESP-IDF firmware with the host
-CLI and tests left behind.
+The engine core is identical C++ that compiles on both desktop and ESP32; the
+host CLI and tests are left behind. The harness pieces (`JsonEventSink`,
+`ProtocolBridge`, the forwarding pattern) are intended to be reused on the
+device, but the desktop `ForwardingRobotHost` is *not* a hardware driver —
+firmware provides a small device-side wrapper around the `RobotHost`; see
+[`Esp32ForwardingRobotHost` in the ESP32 guide](docs/integration/esp32.md#1-a-real-robothost).
 
 - **Clean host boundary.** The engine never touches hardware; it calls the
   abstract `RobotHost` interface (`include/cardcode/robot_host.hpp`). Firmware

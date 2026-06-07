@@ -137,6 +137,14 @@ TEST_CASE("setSensor (far) makes the when body skip") {
     c.send(R"CC({"type":"run","source":"(when (< (distance-cm) 20) (light red))"})CC");
     CHECK(c.count_type("robotCommand") == 0);
     CHECK(c.has_type("programDone"));
+
+    // The engine must emit a `node` message with event "skipped" for the body
+    // of the `when`, since the condition is false and the body is not run.
+    int skipped = 0;
+    for (const auto& n : c.of_type("node")) {
+        if (n.find("event")->as_str() == "skipped") ++skipped;
+    }
+    CHECK(skipped >= 1);
 }
 
 TEST_CASE("a runtime error yields programError and a safety stop") {

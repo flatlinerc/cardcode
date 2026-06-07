@@ -151,8 +151,28 @@ Command vocabulary and args (one per `RobotHost` method):
   "span": { "startOffset": 30, "endOffset": 40, "startLine": 3,
             "startColumn": 8, "endLine": 3, "endColumn": 18 } }
 ```
-Sent for runtime errors and cancellation. The host has already called
-`robot.stop()` before sending this.
+Sent for runtime errors and cancellation. Before this is sent, the host emits
+an implicit `robotCommand("stop")` as the last in-flight message (so a
+cancellation or runtime-error trace is `… node done … robotCommand("stop") …
+programError`, never `programError` on its own). Engine: `src/engine.cpp:359`
+(cancellation) and `:364` (runtime error).
+
+### `error` — protocol-level error from the host
+```json
+{ "type": "error", "message": "a program is already running" }
+```
+Emitted on the control thread, so it can interleave with messages from a run
+that is already in progress. Triggered by:
+- Malformed JSON (or a value that is not an object)
+- Missing `type` field, or `type` that is not a string
+- Missing required field for a typed message (`run`/`compile` without
+  `source`, `setSensor` without `sensor` or `value`)
+- `run` rejected because a program is already running
+- `setSensor` with an unknown sensor name
+- Unknown message `type`
+
+Distinct from `programError` (which is a *runtime* error inside a running
+program and is paired with the `programStart` boundary).
 
 ---
 
@@ -179,6 +199,33 @@ H→C  {"type":"programDone"}
 The UI highlights the card for an id on `start`, shows the interleaved
 `robotCommand`, and clears the highlight on `done`. Identical bytes whether the
 host is the desktop harness or the robot.
+
+## A complete `cancel` exchange
+
+Same program, but `cancel` arrives while the second iteration's `drive` is in
+flight. The `n1` `node done` is the last in-flight event the engine emits for
+the cancelled node; the host then synthesises `robotCommand("stop")` before
+`programError`.
+
+```
+C→H  {"type":"run","source":"(repeat 2 (drive 40 1000) (turn-right 90))"}
+H→C  {"type":"diagnostics","ok":true,"diagnostics":[]}
+H→C  {"type":"programStart"}
+H→C  {"type":"node","event":"start","id":"n0","nodeId":0,"op":"repeat","span":{…}}
+H→C  {"type":"node","event":"start","id":"n1","nodeId":1,"op":"drive","span":{…}}
+H→C  {"type":"robotCommand","command":"drive_forward","args":{"speed":40,"durationMs":1000}}
+H→C  {"type":"node","event":"done","id":"n1","nodeId":1,"op":"drive"}
+H→C  {"type":"node","event":"start","id":"n2","nodeId":2,"op":"turn-right","span":{…}}
+H→C  {"type":"robotCommand","command":"turn_right","args":{"degrees":90}}
+H→C  {"type":"node","event":"done","id":"n2","nodeId":2,"op":"turn-right"}
+        … (second iteration: n1 starts) …
+H→C  {"type":"node","event":"start","id":"n1","nodeId":1,"op":"drive","span":{…}}
+H→C  {"type":"robotCommand","command":"drive_forward","args":{"speed":40,"durationMs":1000}}
+C→H  {"type":"cancel"}
+H→C  {"type":"node","event":"done","id":"n1","nodeId":1,"op":"drive"}
+H→C  {"type":"robotCommand","command":"stop","args":{}}
+H→C  {"type":"programError","message":"execution cancelled"}
+```
 
 ## Ordering & threading guarantees the host must keep
 

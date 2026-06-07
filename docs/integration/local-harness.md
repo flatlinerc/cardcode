@@ -66,16 +66,16 @@ public:
       case T::ProgramStart: emit_(R"({"type":"programStart"})"); break;
       case T::ProgramDone:  emit_(R"({"type":"programDone"})");  break;
       case T::ProgramError:
-        emit_(obj({{"type","\"programError\""},
+        emit_(jobj({{"type","\"programError\""},
                    {"message", jstr(e.message)},
-                   {"span", span_json(e.span)}}));
+                   {"span", jspan(e.span)}}));
         break;
       case T::NodeStart:    emit_(node_json("start", e));    break;
       case T::NodeDone:     emit_(node_json("done", e));     break;
       case T::NodeSkipped:  emit_(node_json("skipped", e));  break;
       case T::NodeError:    emit_(node_json("error", e));    break;
       case T::Log:
-        emit_(obj({{"type","\"log\""}, {"message", jstr(e.message)}}));
+        emit_(jobj({{"type","\"log\""}, {"message", jstr(e.message)}}));
         break;
     }
   }
@@ -83,62 +83,105 @@ public:
 private:
   std::string node_json(const char* ev, const cardcode::ExecutionEvent& e) {
     // id, nodeId, op(=message), span; plus message for the error case.
-    return obj({{"type","\"node\""},
+    return jobj({{"type","\"node\""},
                 {"event", std::string("\"") + ev + "\""},
                 {"id", jstr(cardcode::node_id_to_string(e.node_id))},
                 {"nodeId", std::to_string(e.node_id)},
                 {"op", jstr(e.message)},
-                {"span", span_json(e.span)}});
+                {"span", jspan(e.span)}});
   }
-  // jstr() = JSON-escaped quoted string; obj() = {k:v,...}; span_json() mirrors
-  // SourceSpan field names from protocol.md. (Small hand-rolled JSON — no dep.)
+  // jstr() = JSON-escaped quoted string; jobj() = {k:v,...} (initializer-list
+  // form); jspan() mirrors SourceSpan field names from protocol.md. (Small
+  // hand-rolled JSON — no dep. Real impl lives in harness/json.hpp.)
   std::function<void(std::string)> emit_;
 };
 ```
 
 > Why hand-rolled JSON: it keeps the harness dependency-free (consistent with the
 > exception/host-header-free engine), and the payloads are tiny and fixed-shape.
-> If you'd rather pull in a JSON library on the desktop, swap `obj/jstr/span_json`
+> If you'd rather pull in a JSON library on the desktop, swap `jobj/jstr/jspan`
 > for it — the rest is unchanged. (On ESP32, prefer the hand-rolled version or
 > ESP-IDF's bundled cJSON to avoid RAM/flash cost.)
 
 ### 2. `ForwardingRobotHost` — `RobotHost` calls → `robotCommand` JSON
 
-Subclass `MockRobotHost` so you still get programmable sensors, and forward each
-actuator call as a `robotCommand` message before/while delegating.
+Subclass `RobotHost` directly. Hold UI-injected sensor values as plain fields,
+set them via the `setSensor` control messages, and forward each actuator call as
+a `robotCommand` message. (The real class in
+[`harness/forwarding_host.hpp`](../../harness/forwarding_host.hpp) uses
+`std::atomic`s for the sensor fields so the engine and control threads don't
+race; the sketch keeps them plain since the doc is illustrative.)
 
 ```cpp
-#include "cardcode/mock_robot_host.hpp"
+#include "cardcode/robot_host.hpp"
 #include <functional>
+#include <string>
 
-class ForwardingRobotHost : public cardcode::MockRobotHost {
+class ForwardingRobotHost : public cardcode::RobotHost {
 public:
   explicit ForwardingRobotHost(std::function<void(std::string)> emit) : emit_(std::move(emit)) {}
 
+  // --- UI-injected sensor values (from setSensor control messages) ---
+  void reset() {
+    distance_   = 1000;
+    button_     = false;
+    line_left_  = false;
+    line_right_ = false;
+  }
+  void set_distance(int cm)  { distance_   = cm; }
+  void set_button(bool v)    { button_     = v; }
+  void set_line_left(bool v) { line_left_  = v; }
+  void set_line_right(bool v){ line_right_ = v; }
+
+  // --- Actuators: emit robotCommand, then (optionally) take real time ---
+  // drive_forward / drive_backward / wait_ms sleep for their duration; the
+  // other five (turn_left, turn_right, stop, set_light, beep) are instantaneous.
   void drive_forward(int s, int ms) override {
     emit_(cmd("drive_forward", {{"speed", std::to_string(s)}, {"durationMs", std::to_string(ms)}}));
-    MockRobotHost::drive_forward(s, ms);   // record + (optionally) sleep for ms
+    delay(ms);
   }
-  void turn_right(int d) override {
-    emit_(cmd("turn_right", {{"degrees", std::to_string(d)}}));
-    MockRobotHost::turn_right(d);
+  void drive_backward(int s, int ms) override {
+    emit_(cmd("drive_backward", {{"speed", std::to_string(s)}, {"durationMs", std::to_string(ms)}}));
+    delay(ms);
+  }
+  void turn_left(int d)  override { emit_(cmd("turn_left",  {{"degrees", std::to_string(d)}})); }
+  void turn_right(int d) override { emit_(cmd("turn_right", {{"degrees", std::to_string(d)}})); }
+  void stop()            override { emit_(cmd("stop", {})); }
+  void wait_ms(int ms) override {
+    emit_(cmd("wait", {{"durationMs", std::to_string(ms)}}));
+    delay(ms);
   }
   void set_light(cardcode::Color c) override {
     emit_(cmd("set_light", {{"color", std::string("\"") + cardcode::color_name(c) + "\""}}));
-    MockRobotHost::set_light(c);
   }
-  // …drive_backward / turn_left / stop / wait_ms / beep likewise…
+  void beep() override { emit_(cmd("beep", {})); }
 
-  // Sensors come from MockRobotHost fields, set via setSensor control messages.
+  // --- Sensors: report the injected value and echo it as sensorRead ---
+  int  distance_cm()    override { int  v = distance_;   emit_(sensor("distance-cm", std::to_string(v)));     return v; }
+  bool button_pressed() override { bool v = button_;     emit_(sensor("button",     v ? "true" : "false"));    return v; }
+  bool line_left()     override  { bool v = line_left_;  emit_(sensor("line-left",  v ? "true" : "false"));    return v; }
+  bool line_right()    override  { bool v = line_right_; emit_(sensor("line-right", v ? "true" : "false"));    return v; }
+
 private:
   std::function<void(std::string)> emit_;
+  int  distance_   = 1000;
+  bool button_     = false;
+  bool line_left_  = false;
+  bool line_right_ = false;
+
+  void delay(int /*ms*/) { /* no-op in the sketch; see Timing note below */ }
+  // cmd() and sensor() build the protocol JSON strings — see the JsonEventSink
+  // sketch for the helper style. (Real impl uses jobj/jstr/jspan from
+  // harness/json.hpp; the sketch is hand-rolled for clarity.)
+  std::string cmd(const char* /*name*/, std::initializer_list<std::pair<std::string,std::string>> /*args*/);
+  std::string sensor(const char* /*name*/, const std::string& /*value_json*/);
 };
 ```
 
-> Timing: `MockRobotHost` returns instantly. For UI realism you can make the
-> harness host actually `sleep` for `durationMs`/`wait` so highlight timing on a
-> card matches a real run. Do the sleep on the worker thread, never the transport
-> thread.
+> Timing: `drive_forward` / `drive_backward` / `wait_ms` sleep for their
+> duration; the other five actuators return instantly. For UI realism, gate the
+> sleep on a `realtime_` flag (default off) so headless tests don't actually
+> wait. Do the sleep on the worker thread, never the transport thread.
 
 ### 3. `ProtocolBridge` — parse control messages, drive the engine
 
@@ -158,6 +201,17 @@ public:
     //  "cancel"   -> cancel_.store(true)
     //  "setSensor"-> set robot_.distance_value / button_value / line_*_value
     //  "reset"    -> reset robot_ state
+    //
+    // On any rejection, emit {"type":"error","message":...} and return. Cases
+    // (see harness/protocol_bridge.hpp):
+    //   - Malformed JSON              -> "malformed message"
+    //   - Missing "type"              -> "missing 'type'"
+    //   - Unknown message "type"      -> "unknown message type '...'"
+    //   - "compile" w/o "source"      -> "compile: missing 'source'"
+    //   - "run" w/o "source"          -> "run: missing 'source'"
+    //   - "run" while already running -> "a program is already running"
+    //   - "setSensor" w/o sensor/value-> "setSensor: missing 'sensor' or 'value'"
+    //   - "setSensor" unknown sensor  -> "setSensor: unknown sensor '...'"
   }
 
   void run_program(std::string source) {

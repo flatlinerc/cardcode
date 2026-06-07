@@ -468,6 +468,8 @@ function lineColumnAt(source, offset) {
 }
 ```
 
+**Note on parser parity.** The browser parser above is a *tolerant round-trip* parser, not a faithful re-implementation of the C++ lexer. The C++ lexer (`src/lexer.cpp:9-20`) accepts a fixed allowlist of 11 punctuation chars (`_ - ? ! < > = + * / .`) plus alphanumerics; the browser parser stops only at whitespace, parens, or `;`. That means the C++ lexer will reject characters like `~ @ & : , [ ] { } "` that the JS parser would happily let flow into a single symbol — but no card in the v1 manifest uses any of those characters, so the two parsers agree on every program the UI produces today. If a future engine change adds a character outside the allowlist (for example, adopting `:` for keyword arguments or `[` for vector literals), or if a card template emits one, the parsers will diverge. Treat the engine's `compile` message as the authoritative parser; the browser parser exists only to keep the card tree and the source view in sync, and semantic validation always round-trips through `compile`.
+
 - [ ] **Step 4: Run parser tests**
 
 Run: `npm run test:js`

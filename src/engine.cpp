@@ -112,6 +112,10 @@ Value call_function(const Node& call, ExecState& st, Frame& scope) {
     return ret;
 }
 
+void emit_skipped(const Node& n, ExecState& st) {
+    st.emit(ExecutionEventType::NodeSkipped, n, n.op);
+}
+
 Value eval_inner(const Node& n, ExecState& st, Frame& scope) {
     switch (n.kind) {
         case NodeKind::Do: {
@@ -147,6 +151,10 @@ Value eval_inner(const Node& n, ExecState& st, Frame& scope) {
                     last = eval(*c, st, scope);
                     if (st.stopping()) return Value::none();
                 }
+            } else {
+                for (const auto& c : n.children) {
+                    emit_skipped(*c, st);
+                }
             }
             return last;
         }
@@ -154,7 +162,10 @@ Value eval_inner(const Node& n, ExecState& st, Frame& scope) {
         case NodeKind::If: {
             Value cond = eval(*n.args[0], st, scope);
             if (st.stopping()) return Value::none();
-            return eval(cond.truthy() ? *n.args[1] : *n.args[2], st, scope);
+            const bool taken = cond.truthy();
+            const Node& skipped_branch = taken ? *n.args[2] : *n.args[1];
+            emit_skipped(skipped_branch, st);
+            return eval(taken ? *n.args[1] : *n.args[2], st, scope);
         }
 
         case NodeKind::While: {
