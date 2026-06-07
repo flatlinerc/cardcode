@@ -1,0 +1,4 @@
+; Drive a square: four sides, turning right at each corner.
+(repeat 4
+  (drive 40 1000)
+  (turn-right 90))
