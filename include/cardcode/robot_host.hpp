@@ -2,8 +2,6 @@
 
 namespace cardcode {
 
-// Color is part of the longer-term host API (see HANDOFF.md). It is declared
-// here for forward compatibility but unused by the v1 movement slice.
 enum class Color {
     Off,
     Red,
@@ -13,21 +11,38 @@ enum class Color {
     White
 };
 
+inline const char* color_name(Color c) {
+    switch (c) {
+        case Color::Off:    return "off";
+        case Color::Red:    return "red";
+        case Color::Green:  return "green";
+        case Color::Blue:   return "blue";
+        case Color::Yellow: return "yellow";
+        case Color::White:  return "white";
+    }
+    return "?";
+}
+
 // The engine never touches hardware directly; it drives this interface.
-//
-// v1 vertical slice exposes only the movement/timing subset. Sensors
-// (distance_cm/button/line_*), set_light, and beep are deferred to later
-// milestones and will be added here when their commands are implemented.
 class RobotHost {
 public:
     virtual ~RobotHost() = default;
 
+    // Actuators
     virtual void drive_forward(int speed, int duration_ms) = 0;
     virtual void drive_backward(int speed, int duration_ms) = 0;
     virtual void turn_left(int degrees) = 0;
     virtual void turn_right(int degrees) = 0;
     virtual void stop() = 0;
     virtual void wait_ms(int duration_ms) = 0;
+    virtual void set_light(Color color) = 0;
+    virtual void beep() = 0;
+
+    // Sensors
+    virtual int distance_cm() = 0;
+    virtual bool button_pressed() = 0;
+    virtual bool line_left() = 0;
+    virtual bool line_right() = 0;
 };
 
 } // namespace cardcode

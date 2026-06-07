@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -26,14 +27,17 @@ struct ExecutionResult {
 
 // Run a compiled program against a robot host, emitting events as it goes.
 // Emits ProgramStart, then per-node events, then ProgramDone or ProgramError.
-// On any runtime error it calls robot.stop() as a safety fallback.
+// On any runtime error -- or when `cancel` is set from another thread -- it
+// calls robot.stop() as a safety fallback and halts.
 ExecutionResult execute(const Node& root,
                         RobotHost& robot,
                         ExecutionEventSink& events,
-                        const ExecutionLimits& limits = {});
+                        const ExecutionLimits& limits = {},
+                        const std::atomic<bool>* cancel = nullptr);
 
 struct RunOptions {
     ExecutionLimits limits{};
+    const std::atomic<bool>* cancel = nullptr;
 };
 
 struct RunResult {

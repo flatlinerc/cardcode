@@ -1,0 +1,5 @@
+; Simple line-following nudge: if the left sensor sees the line, steer left;
+; otherwise keep driving.
+(if (line-left)
+  (turn-left 10)
+  (drive 25 200))

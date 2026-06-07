@@ -1,0 +1,7 @@
+; Drive forward; if something is close, stop and signal.
+(do
+  (drive 30 500)
+  (when (< (distance-cm) 20)
+    (stop)
+    (light red)
+    (beep)))

@@ -8,11 +8,7 @@ statement/card.
 
 See `HANDOFF.md` for the full design brief.
 
-## Status: Milestone 1 vertical slice
-
-This pass implements the end-to-end movement slice and nothing more, per the
-handoff's "do not add sensors/conditionals/arithmetic/colors until this works
-end-to-end" guidance.
+## Status: Milestones 1–4 complete
 
 **Implemented**
 
@@ -20,27 +16,48 @@ end-to-end" guidance.
 - Parser (raw S-expression tree, recovery diagnostics)
 - Compiler (typed AST, semantic + safety validation, top-level `do` normalization)
 - Deterministic pre-order node IDs
+- Conditionals (`when`/`if`), sensors, comparison/boolean/arithmetic operators,
+  colored `light`, `beep`
+- Value model with truthiness; runtime type checks; division-by-zero error
 - Blocking interpreter with `RobotHost` abstraction and `ExecutionEventSink`
-- Mock robot host + CLI runner (`cardcode-run`)
-- doctest unit tests: lexer, parser, compiler, IDs, execution, errors/safety
+- Cooperative cancellation via an `std::atomic<bool>` flag + emergency stop
+- Mock robot host (with programmable sensors) + CLI runner (`cardcode-run`)
+- doctest unit tests: lexer, parser, compiler, IDs, execution, errors/safety,
+  conditions/sensors/operators, and cancellation
 
-**Language subset**
+**Language**
 
 ```lisp
+; control flow
 (do ...)
-(repeat COUNT ...)
-(drive SPEED MS)
-(backward SPEED MS)
-(turn-left DEGREES)
-(turn-right DEGREES)
-(stop)
-(wait MS)
+(repeat COUNT ...)            ; COUNT is an integer literal in v1
+(when CONDITION ...)
+(if CONDITION THEN ELSE)      ; THEN/ELSE are single statements (use do to group)
+
+; commands
+(drive SPEED MS)   (backward SPEED MS)
+(turn-left DEG)    (turn-right DEG)
+(stop)             (wait MS)
+(light COLOR)      (beep)        ; COLOR: off red green blue yellow white
+
+; sensors (value-producing)
+(distance-cm) (button) (line-left) (line-right)
+
+; operators (value-producing)
+(< A B) (> A B) (= A B) (<= A B) (>= A B)
+(and A B ...) (or A B ...) (not A)
+(+ A B ...) (- A B) (* A B ...) (/ A B)
 ```
 
-**Deferred to later milestones**: `when`/`if`, comparison/boolean/arithmetic
-operators, sensors (`distance-cm`, `button`, `line-left`, `line-right`),
-`light`/`beep` and colors. The `RobotHost` interface and `Color` enum carry
-forward-compatibility hooks but those commands are not yet wired up.
+**Highlighting policy**: control-flow, command, and sensor nodes are
+highlightable — they receive IDs *and* emit `NodeStart`/`NodeDone` events.
+Operators and literals are assigned internal IDs for determinism but evaluate
+silently (no events). The movement-slice IDs from Milestone 1 are unchanged
+because command numeric arguments are stored inline rather than as child nodes.
+
+**Deferred (Milestone 5, embedded prep)**: no functional language work remains;
+the next step is interface hardening for ESP32 (avoiding heap churn in the hot
+path, optional embedded build flags). Not started.
 
 ## Build & test
 
@@ -57,6 +74,8 @@ ctest --test-dir build --output-on-failure
 
 ```bash
 ./build/cardcode-run examples/square.ccode
+./build/cardcode-run examples/obstacle.ccode
+./build/cardcode-run examples/line.ccode
 ```
 
 Example output:
@@ -92,7 +111,11 @@ examples/           square.ccode
   never do. Repeated statements keep the same ID across iterations.
 - **Errors vs. exceptions**: ordinary syntax/semantic problems return
   `Diagnostic`s; exceptions are reserved for genuine engine bugs.
-- **Safety**: v1 arguments are integer literals, so range checks (speed, duration,
-  degrees, wait, repeat count) happen at compile time with precise spans. The
-  interpreter additionally enforces `max_total_steps` at runtime and calls
-  `robot.stop()` on any error.
+- **Safety**: command arguments are integer literals, so range checks (speed,
+  duration, degrees, wait, repeat count) happen at compile time with precise
+  spans. The interpreter additionally enforces `max_total_steps` at runtime,
+  treats division by zero / type mismatches as runtime errors, and calls
+  `robot.stop()` on any error or cancellation.
+- **Cancellation**: pass an `std::atomic<bool>*` to `execute`/`compile_and_run`.
+  It is polled before each node; when set, the engine stops the robot, emits
+  `ProgramError("execution cancelled")`, and returns `success == false`.
