@@ -4,6 +4,17 @@ import { createInitialState, reduceState, cardsForSpan } from '../src/state.js';
 
 test('state tracks diagnostics and run state', () => {
   let state = createInitialState();
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'diagnostics', ok: true, diagnostics: [] } });
+  assert.deepEqual(state.diagnostics, []);
+  assert.equal(state.status, 'Compiled');
+
+  state = reduceState(state, {
+    type: 'runtimeMessage',
+    message: { type: 'diagnostics', ok: false, diagnostics: [{ severity: 'error', message: 'bad' }] }
+  });
+  assert.deepEqual(state.diagnostics, [{ severity: 'error', message: 'bad' }]);
+  assert.equal(state.status, 'Compile error');
+
   state = reduceState(state, { type: 'runtimeMessage', message: { type: 'programStart' } });
   assert.equal(state.running, true);
 
