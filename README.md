@@ -181,9 +181,10 @@ cmake --build build
 npm run dev
 ```
 
-Open `http://127.0.0.1:9000/`, connect to `ws://127.0.0.1:9000/runtime`, and run
-the current CardCode program. The mock harness can also receive sensor overrides
-from the UI.
+The server listens on `0.0.0.0` by default. Open `http://localhost:9000/`,
+connect to the default `ws://localhost:9000/runtime`, and run the current
+CardCode program. The mock harness can also receive sensor overrides from the
+UI.
 
 To use a real robot, serve the same app and point the URL field at the robot's
 WebSocket endpoint, for example `ws://cardcode.local/cardcode`.

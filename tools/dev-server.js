@@ -211,7 +211,7 @@ function sendText(socket, text) {
 
 function parseArgs(argv) {
   const options = {
-    host: '127.0.0.1',
+    host: '0.0.0.0',
     port: 9000,
     harness: './build/cardcode-harness',
     harnessArgs: []
@@ -231,7 +231,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage: npm run dev -- [--port 9000] [--host 127.0.0.1] [--harness ./build/cardcode-harness] [--realtime]
+  console.log(`Usage: npm run dev -- [--port 9000] [--host 0.0.0.0] [--harness ./build/cardcode-harness] [--realtime]
 
 Serves app/ over HTTP and proxies ws://HOST:PORT/runtime to cardcode-harness.
 Build the harness first with:

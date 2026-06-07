@@ -19,7 +19,7 @@ printf '%s\n' \
   '{"type":"run","source":"(when (< (distance-cm) 20) (light red) (beep))"}' \
   | ./build/cardcode-harness                     # emits the full protocol stream
 
-# Serve the browser UI and expose the mock runtime at ws://127.0.0.1:9000/runtime:
+# Serve the browser UI on 0.0.0.0 and expose the mock runtime at /runtime:
 npm run dev
 
 # Or speak the line protocol directly over TCP for non-browser tests:
@@ -264,8 +264,9 @@ cmake --build build
 npm run dev
 ```
 
-Open `http://127.0.0.1:9000/`. The UI's mock target defaults to
-`ws://127.0.0.1:9000/runtime`.
+The server listens on `0.0.0.0` by default. Open `http://localhost:9000/` from
+the same machine, or use the machine's LAN IP from another device. The UI's mock
+target defaults to same-origin `/runtime`, such as `ws://localhost:9000/runtime`.
 
 Useful options:
 
