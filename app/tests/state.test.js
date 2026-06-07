@@ -76,3 +76,23 @@ test('node spans map to the most specific nested card', () => {
   state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'start', span: branchChildSpan } });
   assert.deepEqual([...state.activeCardIds].sort(), ['branch-child', 'parent-repeat']);
 });
+
+test('node spans without a rendered card match are ignored', () => {
+  const syntheticRootSpan = { startOffset: 0, endOffset: 24 };
+  const driveSpan = { startOffset: 0, endOffset: 15 };
+  const waitSpan = { startOffset: 16, endOffset: 24 };
+  let state = reduceState(createInitialState(), {
+    type: 'edit',
+    source: '(drive 40 1000)\n(wait 1)',
+    cards: [
+      { id: 'drive', span: driveSpan },
+      { id: 'wait', span: waitSpan }
+    ]
+  });
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'start', span: syntheticRootSpan } });
+  assert.deepEqual([...state.activeCardIds], []);
+
+  state = reduceState(state, { type: 'runtimeMessage', message: { type: 'node', event: 'start', span: driveSpan } });
+  assert.deepEqual([...state.activeCardIds], ['drive']);
+});

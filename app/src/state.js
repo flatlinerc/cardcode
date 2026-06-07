@@ -77,8 +77,11 @@ export function cardsForNodeSpan(cards, span) {
   const exactHits = hits.filter((card) => sameSpan(card.span, span));
   if (exactHits.length > 0) return exactHits;
 
-  const smallestSize = Math.min(...hits.map((card) => spanSize(card.span)));
-  return hits.filter((card) => spanSize(card.span) === smallestSize);
+  const containingHits = hits.filter((card) => containsSpan(card.span, span));
+  if (containingHits.length === 0) return [];
+
+  const smallestSize = Math.min(...containingHits.map((card) => spanSize(card.span)));
+  return containingHits.filter((card) => spanSize(card.span) === smallestSize);
 }
 
 export function flattenCards(cards) {
@@ -99,6 +102,10 @@ function overlaps(a, b) {
 
 function sameSpan(a, b) {
   return a.startOffset === b.startOffset && a.endOffset === b.endOffset;
+}
+
+function containsSpan(a, b) {
+  return a.startOffset <= b.startOffset && a.endOffset >= b.endOffset;
 }
 
 function spanSize(span) {

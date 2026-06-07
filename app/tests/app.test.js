@@ -31,3 +31,14 @@ test('default source can be canonicalized during initialization', async () => {
   assert.equal(state.source, '(repeat 4\n  (drive 40 1000)\n  (turn-right 90))');
   assert.equal(state.cards[0].cardId, 'control.repeat');
 });
+
+test('canonicalized initialization keeps card spans in canonical source coordinates', async () => {
+  const manifest = await defaultManifest();
+  const source = '(repeat 4 (drive 40 1000) (turn-right 90))';
+
+  const { state } = applySourceToState(createInitialState(), manifest, source, { canonicalize: true });
+  const driveCard = state.cards[0].children[0];
+
+  assert.equal(driveCard.span.startOffset, state.source.indexOf('(drive'));
+  assert.equal(state.source.slice(driveCard.span.startOffset, driveCard.span.endOffset), '(drive 40 1000)');
+});

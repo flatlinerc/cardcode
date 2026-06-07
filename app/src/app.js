@@ -82,18 +82,17 @@ function applySource(source, options = {}) {
 
 export function applySourceToState(currentState, manifestValue, source, options = {}) {
   try {
-    const ast = parseCardCode(source);
-    const cards = projectProgram(ast, manifestValue);
-    const generated = generateProgram(cards);
-    const nextSource = options.canonicalize ? generated.source : source;
-    const nextState = reduceState(currentState, { type: 'edit', source: nextSource, cards });
+    const projected = projectSource(source, manifestValue);
+    const nextSource = options.canonicalize ? projected.generated.source : source;
+    const nextProjection = options.canonicalize ? projectSource(nextSource, manifestValue) : projected;
+    const nextState = reduceState(currentState, { type: 'edit', source: nextSource, cards: nextProjection.cards });
     return {
       ok: true,
-      generated,
+      generated: nextProjection.generated,
       state: {
         ...nextState,
-        generatedSource: generated.source,
-        cardSpans: generated.cardSpans
+        generatedSource: nextProjection.generated.source,
+        cardSpans: nextProjection.generated.cardSpans
       }
     };
   } catch (err) {
@@ -109,6 +108,13 @@ export function applySourceToState(currentState, manifestValue, source, options 
       }
     };
   }
+}
+
+function projectSource(source, manifestValue) {
+  const ast = parseCardCode(source);
+  const cards = projectProgram(ast, manifestValue);
+  const generated = generateProgram(cards);
+  return { cards, generated };
 }
 
 function scheduleCompile() {
