@@ -6,14 +6,15 @@
 
 using namespace cardcode;
 
-TEST_CASE("compiles a known command") {
+TEST_CASE("compiles a known command with expression arguments") {
     auto r = compile("(drive 40 1000)");
     REQUIRE(r.ok());
     REQUIRE(r.root);
     CHECK(r.root->kind == NodeKind::Drive);
-    REQUIRE(r.root->nums.size() == 2);
-    CHECK(r.root->nums[0] == 40);
-    CHECK(r.root->nums[1] == 1000);
+    REQUIRE(r.root->args.size() == 2);
+    CHECK(r.root->args[0]->kind == NodeKind::IntegerLiteral);
+    CHECK(r.root->args[0]->nums[0] == 40);
+    CHECK(r.root->args[1]->nums[0] == 1000);
 }
 
 TEST_CASE("reports an unknown command") {

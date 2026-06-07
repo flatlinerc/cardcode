@@ -17,6 +17,13 @@ enum class NodeKind {
     Repeat,
     When,
     If,
+    While,
+    // Variables and functions
+    DefineVar,
+    DefineFunc,
+    SetVar,
+    VarRef,
+    Call,
     // Robot commands
     Drive,
     Backward,
@@ -58,10 +65,11 @@ struct Node {
     NodeKind kind{};
     SourceSpan span{};
 
-    std::string op;                  // original operator name, used for display/events
-    std::vector<NodePtr> args;       // operand/condition/branch expressions
-    std::vector<NodePtr> children;   // child statements (do/repeat/when bodies)
-    std::vector<std::int64_t> nums;  // inline numeric/enum literal arguments
+    std::string op;                    // operator/variable/function name; display/events
+    std::vector<NodePtr> args;         // operand/condition/branch/call-argument expressions
+    std::vector<NodePtr> children;     // child statements (do/repeat/when/while/function bodies)
+    std::vector<std::int64_t> nums;    // inline numeric/enum literal values
+    std::vector<std::string> params;   // parameter names (DefineFunc only)
 };
 
 // Highlightable nodes emit NodeStart/NodeDone events and count toward the step
@@ -72,6 +80,10 @@ inline bool is_highlightable(NodeKind kind) {
         case NodeKind::Repeat:
         case NodeKind::When:
         case NodeKind::If:
+        case NodeKind::While:
+        case NodeKind::DefineVar:
+        case NodeKind::SetVar:
+        case NodeKind::Call:
         case NodeKind::Drive:
         case NodeKind::Backward:
         case NodeKind::TurnLeft:
@@ -85,6 +97,8 @@ inline bool is_highlightable(NodeKind kind) {
         case NodeKind::LineLeft:
         case NodeKind::LineRight:
             return true;
+        case NodeKind::DefineFunc:
+        case NodeKind::VarRef:
         case NodeKind::Compare:
         case NodeKind::BooleanOp:
         case NodeKind::Arithmetic:
@@ -106,6 +120,12 @@ inline const char* node_kind_name(NodeKind kind) {
         case NodeKind::Repeat:         return "repeat";
         case NodeKind::When:           return "when";
         case NodeKind::If:             return "if";
+        case NodeKind::While:          return "while";
+        case NodeKind::DefineVar:      return "define";
+        case NodeKind::DefineFunc:     return "define-func";
+        case NodeKind::SetVar:         return "set!";
+        case NodeKind::VarRef:         return "var-ref";
+        case NodeKind::Call:           return "call";
         case NodeKind::Drive:          return "drive";
         case NodeKind::Backward:       return "backward";
         case NodeKind::TurnLeft:       return "turn-left";

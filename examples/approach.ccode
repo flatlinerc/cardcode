@@ -1,0 +1,11 @@
+; while loop + mutable counter.
+; Creep forward a fixed number of steps, counting with a variable, then stop.
+
+(define steps 0)
+
+(while (< steps 4)
+  (drive 30 100)
+  (set! steps (+ steps 1)))
+
+(stop)
+(light green)

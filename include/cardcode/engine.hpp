@@ -17,6 +17,7 @@ namespace cardcode {
 struct ExecutionLimits {
     std::uint32_t max_repeat_count = 100;
     std::uint32_t max_total_steps = 1000;
+    std::uint32_t max_call_depth = 64;    // caps runaway recursion
     std::uint32_t max_runtime_ms = 60000; // reserved for future cooperative scheduling
 };
 

@@ -1,0 +1,12 @@
+; Variables + a user-defined function.
+; Drive a square whose side speed/length live in variables, via a `side` helper.
+
+(define speed 40)
+(define ms 1000)
+
+(define (side)
+  (drive speed ms)
+  (turn-right 90))
+
+(repeat 4
+  (side))

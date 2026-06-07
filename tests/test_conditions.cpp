@@ -76,9 +76,17 @@ TEST_CASE("light accepts named colors") {
     CHECK(robot.commands[0].arg0 == static_cast<int>(Color::Green));
 }
 
-TEST_CASE("unknown color is rejected") {
-    auto r = compile("(light purple)");
-    CHECK_FALSE(r.ok());
+TEST_CASE("an unknown color name is an undefined variable at runtime") {
+    // With variables, a bare symbol like `purple` is a variable reference, so an
+    // unknown color is caught at runtime (undefined variable) rather than compile time.
+    MockRobotHost robot;
+    RecordingSink sink;
+    auto compiled = compile("(light purple)");
+    REQUIRE(compiled.ok());
+    auto r = execute(*compiled.root, robot, sink);
+    CHECK_FALSE(r.success);
+    REQUIRE(r.error.has_value());
+    CHECK(r.error->message.find("undefined variable") != std::string::npos);
 }
 
 TEST_CASE("boolean and/or short-circuit") {
@@ -153,7 +161,9 @@ TEST_CASE("division by zero is a runtime error that stops the robot") {
     CHECK(robot.commands.back().name == "stop");
 }
 
-TEST_CASE("a value-producing form used as a statement is rejected") {
-    auto r = compile("(< 1 2)");
-    CHECK_FALSE(r.ok());
+TEST_CASE("an empty list is still rejected") {
+    // CardCode is expression-oriented now, so a bare comparison like (< 1 2) is a
+    // legal (if pointless) top-level expression. An empty list remains invalid.
+    CHECK(compile("(< 1 2)").ok());
+    CHECK_FALSE(compile("()").ok());
 }

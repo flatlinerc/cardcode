@@ -8,33 +8,43 @@ statement/card.
 
 See `HANDOFF.md` for the full design brief.
 
-## Status: Milestones 1–4 complete
+## Status: Milestones 1–4 + variables/functions complete
 
 **Implemented**
 
 - Lexer (parens, symbols, integers, `;` comments, source spans, diagnostics)
 - Parser (raw S-expression tree, recovery diagnostics)
 - Compiler (typed AST, semantic + safety validation, top-level `do` normalization)
-- Deterministic pre-order node IDs
-- Conditionals (`when`/`if`), sensors, comparison/boolean/arithmetic operators,
-  colored `light`, `beep`
+- Deterministic node IDs (highlightable nodes only)
+- Conditionals (`when`/`if`), `while`, sensors, comparison/boolean/arithmetic
+  operators, colored `light`, `beep`
+- **Variables (`define`/`set!`) and user-defined functions with parameters and
+  recursion** — an expression-oriented evaluator with a flat global+call-frame
+  environment (Lisp-2 namespaces; no lambdas/closures, by design — see the spec)
 - Value model with truthiness; runtime type checks; division-by-zero error
 - Blocking interpreter with `RobotHost` abstraction and `ExecutionEventSink`
-- Cooperative cancellation via an `std::atomic<bool>` flag + emergency stop
+- Cooperative cancellation (`std::atomic<bool>`), call-depth limit, emergency stop
 - Mock robot host (with programmable sensors) + CLI runner (`cardcode-run`)
 - doctest unit tests: lexer, parser, compiler, IDs, execution, errors/safety,
-  conditions/sensors/operators, and cancellation
+  conditions/sensors/operators, cancellation, variables, functions, `while`
 
 **Language**
 
 ```lisp
 ; control flow
 (do ...)
-(repeat COUNT ...)            ; COUNT is an integer literal in v1
+(repeat COUNT ...)             ; COUNT is any integer expression
 (when CONDITION ...)
-(if CONDITION THEN ELSE)      ; THEN/ELSE are single statements (use do to group)
+(if CONDITION THEN ELSE)       ; THEN/ELSE are single expressions (use do to group)
+(while CONDITION ...)
 
-; commands
+; variables and functions
+(define NAME EXPR)             ; bind a variable in the current scope
+(set! NAME EXPR)               ; reassign an existing variable
+(define (NAME PARAM...) BODY…) ; named function (top level only); returns last expr
+(NAME ARG...)                  ; call a user function
+
+; commands (arguments are expressions)
 (drive SPEED MS)   (backward SPEED MS)
 (turn-left DEG)    (turn-right DEG)
 (stop)             (wait MS)
@@ -49,15 +59,29 @@ See `HANDOFF.md` for the full design brief.
 (+ A B ...) (- A B) (* A B ...) (/ A B)
 ```
 
-**Highlighting policy**: control-flow, command, and sensor nodes are
-highlightable — they receive IDs *and* emit `NodeStart`/`NodeDone` events.
-Operators and literals are assigned internal IDs for determinism but evaluate
-silently (no events). The movement-slice IDs from Milestone 1 are unchanged
-because command numeric arguments are stored inline rather than as child nodes.
+Reserved words (always literals; cannot be variable/function names):
+`true false off red green blue yellow white`.
 
-**Deferred (Milestone 5, embedded prep)**: no functional language work remains;
-the next step is interface hardening for ESP32 (avoiding heap churn in the hot
-path, optional embedded build flags). Not started.
+**Expression-oriented**: every form produces a value (commands and control flow
+yield None); a function/loop/conditional body is a sequence of expressions whose
+last value is the result. This is what makes `(define (square n) (* n n))` and
+recursion work.
+
+**Scope & functions**: variables live in a flat environment — a global frame plus
+one fresh frame per function call. Functions see their own params/locals and
+globals, never their caller's locals. Functions are a separate namespace (Lisp-2)
+and are hoisted, so call order is irrelevant and mutual recursion works. There
+are **no lambdas/closures** — a deliberate choice so every construct maps to a
+card in the block UI (see `docs/superpowers/specs/`).
+
+**Highlighting policy**: control-flow, command, sensor, `Call`, `DefineVar`, and
+`SetVar` nodes are highlightable — they get IDs *and* emit `NodeStart`/`NodeDone`.
+Operators, literals, `VarRef`, and `DefineFunc` get no IDs and evaluate silently.
+The Milestone-1 movement IDs are unchanged because command arguments are
+non-highlightable expression nodes.
+
+**Deferred (Milestone 5, embedded prep)**: interface hardening for ESP32
+(avoiding heap churn in the hot path, optional embedded build flags). Not started.
 
 ## Build & test
 
@@ -76,6 +100,8 @@ ctest --test-dir build --output-on-failure
 ./build/cardcode-run examples/square.ccode
 ./build/cardcode-run examples/obstacle.ccode
 ./build/cardcode-run examples/line.ccode
+./build/cardcode-run examples/patrol.ccode    # variables + a function
+./build/cardcode-run examples/approach.ccode  # while + mutable counter
 ```
 
 Example output:

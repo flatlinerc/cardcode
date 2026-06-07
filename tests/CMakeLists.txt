@@ -8,6 +8,9 @@ add_executable(cardcode_tests
   test_errors.cpp
   test_conditions.cpp
   test_cancel.cpp
+  test_variables.cpp
+  test_functions.cpp
+  test_while.cpp
 )
 
 target_link_libraries(cardcode_tests PRIVATE cardcode_engine)
