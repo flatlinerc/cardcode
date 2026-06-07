@@ -30,6 +30,78 @@ test('manifest validation rejects duplicate card ids', () => {
   }), /duplicate card id 'x'/);
 });
 
+test('manifest validation rejects cards without params arrays', () => {
+  assert.throws(() => loadManifestFromObject({
+    manifestVersion: 1,
+    language: 'cardcode',
+    cards: [
+      { id: 'x', form: 'drive', kind: 'command', category: 'motion', label: 'A', template: '(drive)' }
+    ]
+  }), /card x: params must be an array/);
+
+  assert.throws(() => loadManifestFromObject({
+    manifestVersion: 1,
+    language: 'cardcode',
+    cards: [
+      { id: 'y', form: 'wait', kind: 'command', category: 'time', label: 'Wait', template: '(wait)', params: {} }
+    ]
+  }), /card y: params must be an array/);
+});
+
+test('manifest validation rejects invalid param kinds', () => {
+  assert.throws(() => loadManifestFromObject({
+    manifestVersion: 1,
+    language: 'cardcode',
+    cards: [
+      {
+        id: 'x',
+        form: 'drive',
+        kind: 'command',
+        category: 'motion',
+        label: 'A',
+        template: '(drive {{speed}})',
+        params: [{ name: 'speed', kind: 'percentage', label: 'speed', default: 40 }]
+      }
+    ]
+  }), /card x param speed: invalid kind 'percentage'/);
+});
+
+test('manifest validation rejects invalid optional card field shapes', () => {
+  assert.throws(() => loadManifestFromObject({
+    manifestVersion: 1,
+    language: 'cardcode',
+    cards: [
+      {
+        id: 'x',
+        form: 'if',
+        kind: 'control',
+        category: 'logic',
+        label: 'If',
+        template: '(if {{condition}} {{then}} {{else}})',
+        branches: ['then', ''],
+        params: []
+      }
+    ]
+  }), /card x: branches must be an array of non-empty strings/);
+
+  assert.throws(() => loadManifestFromObject({
+    manifestVersion: 1,
+    language: 'cardcode',
+    cards: [
+      {
+        id: 'y',
+        form: 'drive',
+        kind: 'command',
+        category: 'motion',
+        label: 'Drive',
+        template: '(drive)',
+        highlight: 'yes',
+        params: []
+      }
+    ]
+  }), /card y: highlight must be a boolean/);
+});
+
 test('manifest validation rejects params without labels', () => {
   assert.throws(() => loadManifestFromObject({
     manifestVersion: 1,
@@ -45,7 +117,7 @@ test('manifest validation rejects params without labels', () => {
         params: [{ name: 'speed', kind: 'expression', default: 40 }]
       }
     ]
-  }), /param speed: label must be a non-empty string/);
+  }), /card x param speed: label must be a non-empty string/);
 });
 
 test('manifest validation rejects params without defaults', () => {
@@ -63,5 +135,5 @@ test('manifest validation rejects params without defaults', () => {
         params: [{ name: 'speed', kind: 'expression', label: 'speed' }]
       }
     ]
-  }), /param speed: default is required/);
+  }), /card x param speed: default is required/);
 });
