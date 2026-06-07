@@ -3,7 +3,7 @@
   "language": "cardcode",
   "cards": [
     { "id": "control.do", "form": "do", "kind": "control", "category": "control", "label": "Do", "template": "(do {{children}})", "children": "sequence", "params": [] },
-    { "id": "control.repeat", "form": "repeat", "kind": "control", "category": "loops", "label": "Repeat", "template": "(repeat {{count}} {{children}})", "children": "sequence", "params": [{ "name": "count", "kind": "expression", "label": "count", "default": 4 }] },
+    { "id": "control.repeat", "form": "repeat", "kind": "control", "category": "loops", "label": "Repeat", "template": "(repeat {{count}} {{children}})", "children": "sequence", "params": [{ "name": "count", "kind": "expression", "label": "count", "min": 0, "max": 100, "default": 4 }] },
     { "id": "control.when", "form": "when", "kind": "control", "category": "logic", "label": "When", "template": "(when {{condition}} {{children}})", "children": "sequence", "params": [{ "name": "condition", "kind": "expression", "label": "condition", "default": true }] },
     { "id": "control.if", "form": "if", "kind": "control", "category": "logic", "label": "If", "template": "(if {{condition}} {{then}} {{else}})", "branches": ["then", "else"], "params": [{ "name": "condition", "kind": "expression", "label": "condition", "default": true }] },
     { "id": "control.while", "form": "while", "kind": "control", "category": "loops", "label": "While", "template": "(while {{condition}} {{children}})", "children": "sequence", "params": [{ "name": "condition", "kind": "expression", "label": "condition", "default": true }] },

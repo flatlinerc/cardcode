@@ -13,6 +13,10 @@ test('default manifest validates and indexes current language cards', async () =
   assert.ok(manifest.byForm.get('define').some((card) => card.kind === 'binding'));
   assert.ok(manifest.byForm.get('+').some((card) => card.kind === 'expression'));
   assert.ok(manifest.byId.has('control.if'));
+
+  const repeatCountParam = manifest.byId.get('control.repeat').params.find((param) => param.name === 'count');
+  assert.equal(repeatCountParam.min, 0);
+  assert.equal(repeatCountParam.max, 100);
 });
 
 test('manifest validation rejects duplicate card ids', () => {
