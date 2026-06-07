@@ -56,10 +56,8 @@ class Parser {
     const start = this.offset;
     while (!this.atEnd() && !/\s|\(|\)|;/.test(this.source[this.offset])) this.offset++;
     const raw = this.source.slice(start, this.offset);
-    const number = /^-?\d+$/.test(raw) ? Number(raw) : null;
-    const value = number === null ? raw : number;
-    const type = number === null ? 'symbol' : 'integer';
-    return { type, value, raw, span: spanFromOffsets(this.source, start, this.offset) };
+    const type = /^-?\d+$/.test(raw) ? 'integer' : 'symbol';
+    return { type, value: raw, raw, span: spanFromOffsets(this.source, start, this.offset) };
   }
 
   error(message) {

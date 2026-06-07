@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { parseCardCode } from '../src/parser.js';
 
 test('parses nested forms with spans', () => {
@@ -32,12 +32,44 @@ test('skips semicolon comments and tracks following lines', () => {
 });
 
 test('reports unmatched paren with source span', () => {
-  assert.throws(() => parseCardCode('(drive 40 1000'), /expected '\)'/);
+  const source = '(drive 40 1000';
+  let err;
+  try {
+    parseCardCode(source);
+  } catch (error) {
+    err = error;
+  }
+
+  assert.match(err.message, /expected '\)'/);
+  assert.deepEqual(err.span, {
+    startOffset: source.length,
+    endOffset: source.length,
+    startLine: 1,
+    startColumn: source.length + 1,
+    endLine: 1,
+    endColumn: source.length + 1
+  });
+});
+
+test('preserves integer literal values as source text', () => {
+  const ast = parseCardCode('(drive 9007199254740993 1000)');
+  const speed = ast.children[0].children[1];
+  const duration = ast.children[0].children[2];
+
+  assert.equal(speed.type, 'integer');
+  assert.equal(speed.raw, '9007199254740993');
+  assert.equal(speed.value, '9007199254740993');
+  assert.equal(duration.type, 'integer');
+  assert.equal(duration.raw, '1000');
+  assert.equal(duration.value, '1000');
 });
 
 test('parses all examples', async () => {
-  for (const name of ['square', 'obstacle', 'line', 'patrol', 'approach']) {
-    const source = await readFile(new URL(`../../examples/${name}.ccode`, import.meta.url), 'utf8');
+  const examplesUrl = new URL('../../examples/', import.meta.url);
+  const exampleNames = (await readdir(examplesUrl)).filter((name) => name.endsWith('.ccode'));
+
+  for (const name of exampleNames) {
+    const source = await readFile(new URL(name, examplesUrl), 'utf8');
     const ast = parseCardCode(source);
     assert.ok(ast.children.length > 0, `${name} should have top-level forms`);
   }
