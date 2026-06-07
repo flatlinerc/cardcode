@@ -8,18 +8,29 @@ export class RuntimeClient {
 
   connect(url) {
     this.disconnect();
-    this.socket = this.socketFactory(url);
-    this.socket.onopen = () => this.onStatus({ connected: true, url });
-    this.socket.onclose = () => this.onStatus({ connected: false, url });
-    this.socket.onerror = () => this.onStatus({ connected: false, url, error: 'websocket error' });
-    this.socket.onmessage = (event) => {
+    const socket = this.socketFactory(url);
+    this.socket = socket;
+    socket.onopen = () => {
+      if (this.socket === socket) this.onStatus({ connected: true, url });
+    };
+    socket.onclose = () => {
+      if (this.socket === socket) this.onStatus({ connected: false, url });
+    };
+    socket.onerror = () => {
+      if (this.socket === socket) this.onStatus({ connected: false, url, error: 'websocket error' });
+    };
+    socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
+      let message;
       try {
-        this.onMessage(JSON.parse(event.data));
+        message = JSON.parse(event.data);
       } catch (err) {
         this.onMessage({ type: 'error', message: `malformed runtime message: ${err.message}` });
+        return;
       }
+      this.onMessage(message);
     };
-    return this.socket;
+    return socket;
   }
 
   disconnect() {
