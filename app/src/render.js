@@ -15,7 +15,17 @@ function bindStaticActions(actions) {
   if (bound) return;
   bound = true;
 
-  document.getElementById('connect').onclick = () => actions.connect(document.getElementById('url').value);
+  const target = document.getElementById('target');
+  const url = document.getElementById('url');
+  const mockUrl = defaultMockUrl();
+  if (mockUrl && (url.value === '' || url.value === 'ws://localhost:9000/runtime')) url.value = mockUrl;
+
+  target.onchange = () => {
+    if (target.value === 'mock' && mockUrl) url.value = mockUrl;
+    if (target.value === 'robot') url.value = 'ws://cardcode.local/cardcode';
+  };
+
+  document.getElementById('connect').onclick = () => actions.connect(url.value);
   document.getElementById('run').onclick = () => actions.run();
   document.getElementById('stop').onclick = () => actions.stop();
   document.getElementById('reset').onclick = () => actions.reset();
@@ -26,6 +36,12 @@ function bindStaticActions(actions) {
   document.getElementById('sensor-button').onchange = (event) => actions.setSensor('button', event.target.checked);
   document.getElementById('sensor-line-left').onchange = (event) => actions.setSensor('line-left', event.target.checked);
   document.getElementById('sensor-line-right').onchange = (event) => actions.setSensor('line-right', event.target.checked);
+}
+
+function defaultMockUrl() {
+  if (typeof window === 'undefined' || !window.location?.host) return '';
+  const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${scheme}://${window.location.host}/runtime`;
 }
 
 function showMode(mode) {

@@ -6,8 +6,8 @@ robot call as a `robotCommand`, returns UI-injected sensor values, and runs the
 engine on a worker thread.
 
 > **Status: implemented.** The harness lives in [`harness/`](../../harness/) and
-> builds as the `cardcode-harness` target (transport A below). This doc explains
-> its design; the remaining transports (B header-only WS, C WASM) are documented
+> builds as the `cardcode-harness` target. This doc explains
+> its design; the remaining transports (C header-only WS, D WASM) are documented
 > for when they're needed.
 
 ## Quickstart
@@ -19,9 +19,10 @@ printf '%s\n' \
   '{"type":"run","source":"(when (< (distance-cm) 20) (light red) (beep))"}' \
   | ./build/cardcode-harness                     # emits the full protocol stream
 
-# Expose to a browser at ws://localhost:8080 with no glue code:
-websocketd --port=8080 ./cardcode-harness
-# …or speak the line protocol directly over TCP:
+# Serve the browser UI and expose the mock runtime at ws://127.0.0.1:9000/runtime:
+npm run dev
+
+# Or speak the line protocol directly over TCP for non-browser tests:
 ./build/cardcode-harness --port 8080
 # Add --realtime to sleep for drive/wait durations (realistic highlight timing).
 ```
@@ -250,30 +251,54 @@ Notes:
 
 The bridge above is transport-agnostic. Pick how bytes move:
 
-### (A) Dependency-free — TCP or stdio + a tiny relay  *(recommended to start)*
-The harness reads/writes **newline-delimited JSON** on a TCP socket (or
-stdin/stdout). Browsers can't open raw TCP, so bridge to a WebSocket with a
-~1-line tool — no C++ dependency:
+### (A) Dependency-free dev server  *(recommended to start)*
+
+The browser UI uses WebSockets, while `cardcode-harness` uses newline-delimited
+JSON on stdin/stdout or raw TCP. `tools/dev-server.js` is the local relay: it
+serves `app/` over HTTP and starts one `cardcode-harness` process per WebSocket
+connection at `/runtime`.
 
 ```bash
-# Option 1: websocketd exposes the harness over ws:// with zero glue code.
-websocketd --port=8080 ./cardcode-harness
-
-# Option 2: a ~15-line Python asyncio relay (websockets <-> TCP) if you prefer.
+cmake -S . -B build
+cmake --build build
+npm run dev
 ```
 
-The browser connects to `ws://localhost:8080`; the relay pipes frames ⇄ lines.
-This keeps the C++ build offline-friendly and identical to the engine's no-dep
-philosophy.
+Open `http://127.0.0.1:9000/`. The UI's mock target defaults to
+`ws://127.0.0.1:9000/runtime`.
 
-### (B) In-process WebSocket (header-only library)
+Useful options:
+
+```bash
+npm run dev -- --port 9001
+npm run dev -- --harness ./build/cardcode-harness --realtime
+```
+
+### (B) Other relays — TCP or stdio
+
+The harness reads/writes **newline-delimited JSON** on a TCP socket (or
+stdin/stdout). Browsers can't open raw TCP, so bridge to a WebSocket with a
+small relay:
+
+```bash
+# websocketd exposes the harness over ws:// with zero glue code.
+websocketd --port=8080 ./build/cardcode-harness
+
+# Raw TCP is useful for scripts, but browser WebSocket cannot connect to it.
+./build/cardcode-harness --port 8080
+```
+
+If you use `websocketd`, serve `app/` separately and connect the UI to
+`ws://localhost:8080`.
+
+### (C) In-process WebSocket (header-only library)
 Link a header-only WS server (e.g. a single-header library you vendor into
 `third_party/`) and have the harness speak `ws://` directly — no relay. The
 adapters above are unchanged; only `emit_`/`handle` are wired to the library's
 send/receive callbacks. Use this once you want a one-process `./cardcode-harness`
 with no helper.
 
-### (C) WASM (future) — no server at all
+### (D) WASM (future) — no server at all
 Compile the engine + the two adapters to WebAssembly (Emscripten). The
 "transport" becomes a direct function-call boundary: the page calls an exported
 `run(source)`; `emit_` calls a JS callback instead of a socket. Because the
@@ -293,8 +318,8 @@ harness/
   json_event_sink.hpp   # JsonEventSink   (ExecutionEvent -> protocol JSON)
   forwarding_host.hpp   # ForwardingRobotHost (RobotHost -> robotCommand/sensorRead)
   protocol_bridge.hpp   # ProtocolBridge  (parse control msgs, drive the engine)
-  main.cpp              # transport A: stdio (default) + --port TCP
-  # (transport B header-only WS / transport C WASM bindings drop in here later)
+  main.cpp              # stdio (default) + --port TCP
+  # (transport C header-only WS / transport D WASM bindings drop in here later)
 tests/test_harness.cpp  # drives ProtocolBridge inline (async=false) and asserts
                         # the emitted protocol messages
 ```

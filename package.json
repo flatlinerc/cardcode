@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "dev": "node tools/dev-server.js",
     "test:js": "node --test app/tests/*.test.js"
   }
 }

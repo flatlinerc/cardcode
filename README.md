@@ -161,8 +161,8 @@ targets speak, and per-target guides for the
 
 The local harness is **implemented** in [`harness/`](harness/) (builds as
 `cardcode-harness`). It speaks the JSON protocol over stdin/stdout (or `--port`
-TCP); pair it with `websocketd --port=8080 ./cardcode-harness` to drive the card
-UI from a browser. Quick check:
+TCP); `npm run dev` wraps it in a browser WebSocket for local UI development.
+Quick check:
 
 ```bash
 printf '%s\n' '{"type":"run","source":"(repeat 4 (drive 40 1000) (turn-right 90))"}' \
@@ -172,17 +172,21 @@ printf '%s\n' '{"type":"run","source":"(repeat 4 (drive 40 1000) (turn-right 90)
 ### Browser card UI
 
 The browser UI lives in `app/` and talks to the same JSON protocol as a robot.
+The easiest local path is the dependency-free dev server, which serves the app
+and exposes the mock harness at a browser WebSocket endpoint.
 
 ```bash
 cmake -S . -B build
 cmake --build build
-websocketd --port=8080 ./build/cardcode-harness
-python3 -m http.server 9000 --directory app
+npm run dev
 ```
 
-Open `http://localhost:9000`, connect to `ws://localhost:8080`, and run the
-current CardCode program. The mock harness can also receive sensor overrides
+Open `http://127.0.0.1:9000/`, connect to `ws://127.0.0.1:9000/runtime`, and run
+the current CardCode program. The mock harness can also receive sensor overrides
 from the UI.
+
+To use a real robot, serve the same app and point the URL field at the robot's
+WebSocket endpoint, for example `ws://cardcode.local/cardcode`.
 
 ## Embedded integration (Milestone 5)
 

@@ -7,7 +7,7 @@ test('app shell declares required assets and element ids', async () => {
 
   assert.match(html, /<link rel="stylesheet" href="\.\/styles\.css">/);
   assert.match(html, /<script type="module" src="\.\/src\/app\.js"><\/script>/);
-  assert.match(html, /value="ws:\/\/localhost:8080"/);
+  assert.match(html, /value="ws:\/\/localhost:9000\/runtime"/);
 
   for (const id of [
     'status',

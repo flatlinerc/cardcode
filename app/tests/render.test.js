@@ -110,6 +110,7 @@ function installDocument() {
     'run',
     'stop',
     'reset',
+    'target',
     'blocks-tab',
     'code-tab',
     'url',
@@ -122,6 +123,12 @@ function installDocument() {
   }
   document.add('section', 'panel', ['panel']);
   globalThis.document = document;
+  globalThis.window = {
+    location: {
+      protocol: 'http:',
+      host: 'localhost:9000'
+    }
+  };
   return document;
 }
 
@@ -163,6 +170,7 @@ test('renderApp renders cards recursively and binds static controls once', async
   renderApp({ ...state, status: 'Done' }, actions);
 
   assert.equal(document.getElementById('status').textContent, 'Done');
+  assert.equal(document.getElementById('url').value, 'ws://localhost:9000/runtime');
   assert.equal(document.getElementById('code-view').value, state.source);
   assert.equal(document.getElementById('blocks-view').children.length, 1);
 
@@ -185,6 +193,8 @@ test('renderApp renders cards recursively and binds static controls once', async
   document.getElementById('sensor-distance').onchange({ target: { value: '12' } });
   document.getElementById('sensor-button').onchange({ target: { checked: true } });
   document.getElementById('code-tab').onclick();
+  document.getElementById('target').value = 'robot';
+  document.getElementById('target').onchange();
 
   assert.deepEqual(calls, [
     ['connect', 'ws://robot'],
@@ -197,6 +207,7 @@ test('renderApp renders cards recursively and binds static controls once', async
   ]);
   assert.equal(document.getElementById('panel').classList.has('show-code'), true);
   assert.equal(document.getElementById('code-tab').classList.has('active'), true);
+  assert.equal(document.getElementById('url').value, 'ws://cardcode.local/cardcode');
 });
 
 test('renderApp does not rewrite an unchanged code textarea value', async () => {
