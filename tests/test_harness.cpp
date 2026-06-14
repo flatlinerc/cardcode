@@ -1,5 +1,6 @@
 #include "doctest.h"
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -164,6 +165,40 @@ TEST_CASE("variables and functions work through the protocol") {
     REQUIRE(cmds.size() == 1);
     CHECK(cmds[0].find("command")->as_str() == "wait");
     CHECK(cmds[0].find("args")->find("durationMs")->as_int() == 49);
+}
+
+// --- Realtime pacing -------------------------------------------------------
+// In realtime mode the forwarding host sleeps for each command's duration so the
+// UI highlight tracks a real run. Turns are paced at 90 deg/sec and beep gets a
+// fixed 250 ms so both are visible; instant mode (the default) never sleeps.
+
+namespace {
+// Run one program synchronously and return wall-clock milliseconds elapsed.
+long long run_elapsed_ms(bool realtime, const std::string& message) {
+    std::vector<std::string> out;
+    ProtocolBridge bridge([&out](const std::string& m) { out.push_back(m); },
+                          BridgeOptions{/*async=*/false, realtime});
+    auto t0 = std::chrono::steady_clock::now();
+    bridge.handle(message);
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - t0)
+        .count();
+}
+} // namespace
+
+TEST_CASE("realtime mode paces a 90-degree turn at ~1 second") {
+    long long ms = run_elapsed_ms(true, R"CC({"type":"run","source":"(turn-right 90)"})CC");
+    CHECK(ms >= 900); // 90 deg / (90 deg/sec) ~= 1000 ms
+}
+
+TEST_CASE("realtime mode gives beep a visible duration") {
+    long long ms = run_elapsed_ms(true, R"CC({"type":"run","source":"(beep)"})CC");
+    CHECK(ms >= 230); // 250 ms beep, with slack for timer granularity
+}
+
+TEST_CASE("instant mode never sleeps for turns or beep") {
+    long long ms = run_elapsed_ms(false, R"CC({"type":"run","source":"(turn-left 360) (beep)"})CC");
+    CHECK(ms < 200);
 }
 
 TEST_CASE("malformed and unknown messages report an error, not a crash") {

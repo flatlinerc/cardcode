@@ -6,8 +6,10 @@
 //                     expose it to a browser at ws://localhost:8080.
 //   --port N:         listen on 127.0.0.1:N and speak the same line protocol
 //                     directly over TCP (one client at a time).
-//   --realtime:       sleep for drive/wait durations so highlight timing matches
-//                     a real run (default: instant).
+//   --realtime:       sleep for each command's duration so highlight timing
+//                     matches a real run (default: instant). Drive/wait sleep for
+//                     their durationMs; turns are paced at 90 deg/sec and beep
+//                     takes 250 ms. stop/set_light stay instant.
 
 #include <cstring>
 #include <iostream>

@@ -48,9 +48,11 @@ public:
     }
     void turn_left(int degrees) override {
         command("turn_left", {{"degrees", jnum(degrees)}});
+        delay(turn_duration_ms(degrees));
     }
     void turn_right(int degrees) override {
         command("turn_right", {{"degrees", jnum(degrees)}});
+        delay(turn_duration_ms(degrees));
     }
     void stop() override { command("stop", {}); }
     void wait_ms(int duration_ms) override {
@@ -60,7 +62,10 @@ public:
     void set_light(Color color) override {
         command("set_light", {{"color", jstr(color_name(color))}});
     }
-    void beep() override { command("beep", {}); }
+    void beep() override {
+        command("beep", {});
+        delay(kBeepMs);
+    }
 
     // --- Sensors: report the injected value and echo it as sensorRead ---
     int distance_cm() override   { int v = distance_.load();  sensor("distance-cm", jnum(v)); return v; }
@@ -81,6 +86,15 @@ private:
     }
     void delay(int ms) {
         if (realtime_ && ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+
+    // Turns carry only an angle, so derive a wall-clock duration from a fixed
+    // turn rate (90 deg/sec) for realtime pacing; beep gets a fixed duration.
+    static constexpr int kTurnDegPerSec = 90;
+    static constexpr int kBeepMs = 250;
+    static int turn_duration_ms(int degrees) {
+        int magnitude = degrees < 0 ? -degrees : degrees;
+        return magnitude * 1000 / kTurnDegPerSec;
     }
 
     Emit emit_;

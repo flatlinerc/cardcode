@@ -24,7 +24,7 @@ npm run dev
 
 # Or speak the line protocol directly over TCP for non-browser tests:
 ./build/cardcode-harness --port 8080
-# Add --realtime to sleep for drive/wait durations (realistic highlight timing).
+# Add --realtime to sleep for each command's duration (realistic highlight timing).
 ```
 
 This doc shows the two reusable adapters — a JSON-emitting `ExecutionEventSink`
@@ -135,8 +135,8 @@ public:
   void set_line_right(bool v){ line_right_ = v; }
 
   // --- Actuators: emit robotCommand, then (optionally) take real time ---
-  // drive_forward / drive_backward / wait_ms sleep for their duration; the
-  // other five (turn_left, turn_right, stop, set_light, beep) are instantaneous.
+  // drive_forward / drive_backward / wait_ms sleep for their durationMs; turns
+  // are paced at 90 deg/sec and beep takes 250 ms. stop / set_light are instant.
   void drive_forward(int s, int ms) override {
     emit_(cmd("drive_forward", {{"speed", std::to_string(s)}, {"durationMs", std::to_string(ms)}}));
     delay(ms);
@@ -145,8 +145,8 @@ public:
     emit_(cmd("drive_backward", {{"speed", std::to_string(s)}, {"durationMs", std::to_string(ms)}}));
     delay(ms);
   }
-  void turn_left(int d)  override { emit_(cmd("turn_left",  {{"degrees", std::to_string(d)}})); }
-  void turn_right(int d) override { emit_(cmd("turn_right", {{"degrees", std::to_string(d)}})); }
+  void turn_left(int d)  override { emit_(cmd("turn_left",  {{"degrees", std::to_string(d)}})); delay(turn_ms(d)); }
+  void turn_right(int d) override { emit_(cmd("turn_right", {{"degrees", std::to_string(d)}})); delay(turn_ms(d)); }
   void stop()            override { emit_(cmd("stop", {})); }
   void wait_ms(int ms) override {
     emit_(cmd("wait", {{"durationMs", std::to_string(ms)}}));
@@ -155,7 +155,7 @@ public:
   void set_light(cardcode::Color c) override {
     emit_(cmd("set_light", {{"color", std::string("\"") + cardcode::color_name(c) + "\""}}));
   }
-  void beep() override { emit_(cmd("beep", {})); }
+  void beep() override { emit_(cmd("beep", {})); delay(250); }
 
   // --- Sensors: report the injected value and echo it as sensorRead ---
   int  distance_cm()    override { int  v = distance_;   emit_(sensor("distance-cm", std::to_string(v)));     return v; }
@@ -171,6 +171,8 @@ private:
   bool line_right_ = false;
 
   void delay(int /*ms*/) { /* no-op in the sketch; see Timing note below */ }
+  // Turns carry only an angle, so derive ms from a fixed 90 deg/sec turn rate.
+  static int turn_ms(int d) { return (d < 0 ? -d : d) * 1000 / 90; }
   // cmd() and sensor() build the protocol JSON strings — see the JsonEventSink
   // sketch for the helper style. (Real impl uses jobj/jstr/jspan from
   // harness/json.hpp; the sketch is hand-rolled for clarity.)
@@ -180,9 +182,11 @@ private:
 ```
 
 > Timing: `drive_forward` / `drive_backward` / `wait_ms` sleep for their
-> duration; the other five actuators return instantly. For UI realism, gate the
-> sleep on a `realtime_` flag (default off) so headless tests don't actually
-> wait. Do the sleep on the worker thread, never the transport thread.
+> `durationMs`; `turn_left` / `turn_right` are paced at 90 deg/sec and `beep`
+> takes 250 ms, so every motion is visible. `stop` / `set_light` return
+> instantly. For UI realism, gate the sleep on a `realtime_` flag (default off)
+> so headless tests don't actually wait. Do the sleep on the worker thread,
+> never the transport thread.
 
 ### 3. `ProtocolBridge` — parse control messages, drive the engine
 
