@@ -108,6 +108,11 @@ export function createDevServer({
   runtimePath = '/runtime'
 } = {}) {
   const server = createServer(async (req, res) => {
+    // A client that navigates away mid-response resets the socket; swallow it
+    // so it doesn't surface as an unhandled 'error' event and crash the server.
+    req.on('error', () => {});
+    res.on('error', () => {});
+
     const filePath = resolveStaticPath(appRoot, req.url || '/');
     if (!filePath) {
       res.writeHead(403);
@@ -119,7 +124,9 @@ export function createDevServer({
       const info = await stat(filePath);
       if (!info.isFile()) throw new Error('not a file');
       res.writeHead(200, { 'Content-Type': contentTypeForPath(filePath) });
-      createReadStream(filePath).pipe(res);
+      const stream = createReadStream(filePath);
+      stream.on('error', () => res.destroy());
+      stream.pipe(res);
     } catch {
       res.writeHead(404);
       res.end('Not found\n');
@@ -127,6 +134,9 @@ export function createDevServer({
   });
 
   server.on('upgrade', (req, socket) => {
+    // Without an error listener, a client reset (ECONNRESET) on the upgraded
+    // socket throws and takes the whole process down.
+    socket.on('error', () => socket.destroy());
     const pathname = new URL(req.url || '/', 'http://localhost').pathname;
     if (pathname !== runtimePath) {
       socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
@@ -148,6 +158,8 @@ function attachRuntimeSocket(req, socket, harness, harnessArgs) {
   }
 
   const child = spawn(harness, harnessArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+  // Writing to the harness after it exits emits EPIPE on stdin; ignore it.
+  child.stdin.on('error', () => {});
   let socketBuffer = Buffer.alloc(0);
   let lineBuffer = '';
 
@@ -212,7 +224,7 @@ function sendText(socket, text) {
 function parseArgs(argv) {
   const options = {
     host: '0.0.0.0',
-    port: 9000,
+    port: 19000,
     harness: './build/cardcode-harness',
     harnessArgs: []
   };
@@ -231,7 +243,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage: npm run dev -- [--port 9000] [--host 0.0.0.0] [--harness ./build/cardcode-harness] [--realtime]
+  console.log(`Usage: npm run dev -- [--port 19000] [--host 0.0.0.0] [--harness ./build/cardcode-harness] [--realtime]
 
 Serves app/ over HTTP and proxies ws://HOST:PORT/runtime to cardcode-harness.
 Build the harness first with:
