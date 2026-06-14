@@ -1,0 +1,33 @@
+# CardCode engine -- ESP-IDF managed component manifest.
+#
+# This manifest lives at the REPO ROOT because the engine is registered as a
+# repo-root component (see the ESP_PLATFORM branch in CMakeLists.txt). A
+# consuming project pulls it as a git dependency with NO `path:` (the component
+# IS the repo root). The whole repo is copied into managed_components/, so the
+# engine sources/headers are present beside the component CMakeLists -- a single
+# source of truth shared with the host build.
+#
+# The engine has ZERO ESP-IDF component dependencies beyond the toolchain
+# (libstdc++) and FreeRTOS, which IDF always provides.
+version: "0.1.0"
+description: "CardCode engine: lexer/parser/compiler/interpreter for the CardCode visual robot language. Exception/RTTI-free, C++23, zero ESP-IDF dependencies."
+url: "https://github.com/flatlinerc/cardcode"
+targets:
+  - esp32
+  - esp32s3
+dependencies:
+  idf:
+    version: ">=5.0"
+# Keep the copied component lean: the host-only UI, docs, tests, tools and build
+# trees are not needed to build the engine library. (If a consumer's Component
+# Manager ignores this filter, the extra files are harmless -- they are simply
+# never referenced by the ESP_PLATFORM branch of CMakeLists.txt.)
+files:
+  exclude:
+    - "app/**/*"
+    - "docs/**/*"
+    - "tests/**/*"
+    - "tools/**/*"
+    - "build/**/*"
+    - "build-host/**/*"
+    - "node_modules/**/*"

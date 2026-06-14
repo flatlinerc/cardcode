@@ -1,4 +1,36 @@
 cmake_minimum_required(VERSION 3.25)
+
+# -----------------------------------------------------------------------------
+# Dual-mode CMakeLists.
+#
+#   * Under ESP-IDF (ESP_PLATFORM is set) this file acts as a managed COMPONENT:
+#     it calls idf_component_register() and returns. The ESP-IDF Component
+#     Manager copies the WHOLE repo for a git dependency whose component is the
+#     repo root, so the engine sources/headers (src/, include/, harness/) sit
+#     right beside this file -- no `..` references and a single source of truth.
+#   * Standalone (host) it is the normal project() build below (engine library +
+#     cardcode-run CLI + cardcode-harness + doctest suite).
+#
+# NOTE: a per-subdir component (idf_component/ referencing ${COMPONENT_DIR}/..)
+# CANNOT work as a git dependency -- the Component Manager only copies the
+# component directory, not its parent -- so the engine MUST be the repo-root
+# component. That is why idf_component_register lives here, guarded by
+# ESP_PLATFORM, rather than in a subdir.
+# -----------------------------------------------------------------------------
+if(ESP_PLATFORM)
+  idf_component_register(
+    SRCS src/lexer.cpp src/parser.cpp src/compiler.cpp src/engine.cpp
+    INCLUDE_DIRS include harness
+  )
+  # C++23, exceptions/RTTI off (mirrors the host CARDCODE_EMBEDDED=ON build).
+  # IDF already builds C++ this way by default; set it explicitly so the
+  # contract holds regardless of the consuming project's sdkconfig.
+  target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_23)
+  target_compile_options(${COMPONENT_LIB} PRIVATE
+    -std=gnu++23 -fno-exceptions -fno-rtti)
+  return()
+endif()
+
 project(cardcode_engine LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
