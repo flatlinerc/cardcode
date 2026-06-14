@@ -172,12 +172,16 @@ test('renderApp renders cards recursively and binds static controls once', async
   assert.equal(document.getElementById('status').textContent, 'Done');
   assert.equal(document.getElementById('url').value, 'ws://localhost:9000/runtime');
   assert.equal(document.getElementById('code-view').value, state.source);
-  assert.equal(document.getElementById('blocks-view').children.length, 1);
+  const blocksView = document.getElementById('blocks-view');
+  const topCards = blocksView.children.filter((child) => child.classList.has('card'));
+  assert.equal(topCards.length, 1);
+  assert.equal(blocksView.children.some((child) => (child.className || '').includes('add-step')), true);
 
-  const repeat = document.getElementById('blocks-view').children[0];
+  const repeat = topCards[0];
   assert.equal(repeat.dataset.category, 'loops');
+  assert.equal(repeat.dataset.label, 'Repeat');
   assert.equal(repeat.classList.has('active'), true);
-  assert.equal(repeat.children.some((child) => child.textContent === 'Repeat'), true);
+  assert.equal(cardOwnTexts(repeat).includes('Repeat'), true);
   assert.equal(findCardByTitle(repeat, 'Drive').dataset.category, 'motion');
   assert.equal(findCardByTitle(repeat, 'Fallback').classList.has('error'), true);
 
@@ -239,11 +243,27 @@ test('renderApp does not rewrite an unchanged code textarea value', async () => 
   assert.equal(codeView.valueSetCount, writesBeforeRender);
 });
 
+function isCard(node) {
+  return Boolean(node.classList?.has?.('card'));
+}
+
+function allCards(root, acc = []) {
+  if (isCard(root)) acc.push(root);
+  for (const child of root.children || []) allCards(child, acc);
+  return acc;
+}
+
+// Text belonging to a card, excluding text inside any nested card.
+function cardOwnTexts(card) {
+  const out = [];
+  (function walk(node, isRoot) {
+    if (!isRoot && isCard(node)) return;
+    if (node.textContent) out.push(node.textContent);
+    for (const child of node.children || []) walk(child, false);
+  })(card, true);
+  return out;
+}
+
 function findCardByTitle(root, title) {
-  if (root.classList?.has('card') && root.children.some((child) => child.textContent === title)) return root;
-  for (const child of root.children) {
-    const match = findCardByTitle(child, title);
-    if (match) return match;
-  }
-  return null;
+  return allCards(root).find((card) => cardOwnTexts(card).includes(title)) || null;
 }
